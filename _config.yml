@@ -56,3 +56,6 @@ plugins:
 
 owner: ashtrace
 year: "2024"
+
+paginate: 5
+paginate_path: "/page:num/"
