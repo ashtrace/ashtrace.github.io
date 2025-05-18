@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><?xml-stylesheet href="/feed_style.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="https://www.rssboard.org/media-rss">
+  <channel>
+    <title>Tags on ashtrace | blog</title>
+    <link>https://ashtrace.github.io/tags/</link>
+    <description>Recent content in Tags on ashtrace | blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
+    <lastBuildDate>Sat, 05 Oct 2024 00:09:08 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>Ctf</title>
+      <link>https://ashtrace.github.io/tags/ctf/</link>
+      <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/ctf/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Linux</title>
+      <link>https://ashtrace.github.io/tags/linux/</link>
+      <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/linux/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Pwn</title>
+      <link>https://ashtrace.github.io/tags/pwn/</link>
+      <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/pwn/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Writeup</title>
+      <link>https://ashtrace.github.io/tags/writeup/</link>
+      <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/writeup/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+  </channel>
+</rss>
