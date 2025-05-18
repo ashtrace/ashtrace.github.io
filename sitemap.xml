@@ -3,27 +3,30 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://ashtrace.github.io/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/ctf/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
+  </url><url>
+    <loc>https://ashtrace.github.io/posts/how_functions_resolve/</loc>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/linux/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/posts/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/pwn/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
-  </url><url>
-    <loc>https://ashtrace.github.io/posts/tracing_file_descriptors/</loc>
-    <lastmod>2024-10-05T00:09:08+05:30</lastmod>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/writeup/</loc>
+    <lastmod>2025-01-14T08:57:53+05:30</lastmod>
+  </url><url>
+    <loc>https://ashtrace.github.io/posts/tracing_file_descriptors/</loc>
     <lastmod>2024-10-05T00:09:08+05:30</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/categories/</loc>
