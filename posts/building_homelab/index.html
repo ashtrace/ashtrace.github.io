@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html class="" lang="en-us"><head>
+    
+    <meta name="robots" content="noai, noimageai">
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=7" />
+
+    <link
+    rel="icon"
+    href='/favicon.png'
+/>
+<link
+    rel="shortcut icon"
+    href='/favicon.ico'
+    type="image/x-icon"
+/>
+<link
+    rel="apple-touch-icon"
+    href='/apple-touch-icon.png'
+/>
+
+    <link
+        rel="icon"
+        href='/logo.svg'
+        type="image/svg+xml"
+    />
+
+<title>
+        
+            AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps  &ndash;
+        
+        ashtrace | blog
+    </title>
+
+    
+    <link href="/symbols-nerd-font/symbols-nerd-font.css" rel="stylesheet" />
+    <link href="/jetbrains-mono/jetbrains-mono.css" rel="stylesheet" />
+
+    
+    
+    <link type="text/css" rel="stylesheet" href=https://ashtrace.github.io/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
+<meta name="author" content="Aishwarya Raj" />
+
+    
+        <meta name="keywords" content='active directory' />
+    
+    
+        <meta name="description" content="am I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (author&amp;rsquo;s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) &#43; 1 (extension) VMs, so I went Thanos mode and declared - Fine! I&amp;rsquo;ll do it myself." />
+    
+
+<meta property="og:site_name"
+    content='ashtrace | blog' />
+
+    <meta property="og:title" content="AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps" />
+    <meta property="og:type" content="article" />
+    
+    <meta
+        property="article:author" content="Aishwarya Raj" />
+    
+    <meta
+        property="article:published_time"
+        content='2025-05-23T13:06:50Z-0400' />
+    
+        
+            <meta property="article:tag" content="active directory" />
+        
+    
+    <meta property="og:url" content="https://ashtrace.github.io/posts/building_homelab/" />
+    
+    
+    <meta property="og:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta property="og:description" content="Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (au" />
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="twitter:domain"
+      content='ashtrace.github.io'
+/>
+<meta property="twitter:url" content="https://ashtrace.github.io/posts/building_homelab/" />
+
+
+    <meta name="twitter:title" content="AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps" />
+    
+    
+    
+    <meta name="twitter:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta name="twitter:description" content="Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (au" />
+    
+
+<link rel="manifest" href="/manifest/index.json" />
+</head>
+
+
+<body>
+        <div id="baseContainer"><header class="">
+<div class="titleAndSearchContainer">
+        <div id="titleContainer">
+            
+                <a class="unstyledLink" href="/">
+                    <img src='/logo.svg' alt='Logo'/>
+                </a>
+            
+            <div class="rightOfLogo">
+                <div class="titleAndHamburger">
+                    <h1>
+                        <a class="unstyledLink" href="/">ashtrace | blog</a>
+                        
+                    </h1>
+                    
+                </div>
+                <div id="wide_nav"><nav>
+    
+    <ul id="main-nav">
+        <li><a href="/">Home</a></li>
+        
+            <li><a href="/posts/">Posts</a></li>
+        
+        
+        
+        
+        
+        
+        
+            <li><a href="/tags/">Tags</a></li>
+        
+        
+    </ul>
+</nav>
+</div>
+            </div>
+        </div>
+        <div class="search">
+    <input id="searchbar" type="text" placeholder='Search' />
+    <span class="nerdlink" onclick="newSearch();">&#xf002;</span>
+</div>
+<script>
+    function newSearch() {
+        let term = searchbar.value.trim();
+        if (!term) return;
+        location.href = `/search/?q=${term}`;
+    }
+    searchbar.onkeyup = (ev) => {if (ev.keyCode == 13) newSearch()};
+</script>
+
+    </div>
+    <div id="links">
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="/index.xml">
+    
+    
+        &#xf09e;
+    
+    <span>
+        RSS
+    </span>
+</a>
+
+        
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="https://github.com/ashtrace">
+    
+    
+        &#xf09b;
+    
+    <span>
+        GitHub
+    </span>
+</a>
+
+    </div>
+    
+
+</header>
+<div id="contentContainer">
+                <div id="content">
+                    <main>
+<article class="card single">
+    
+        <h1>AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps</h1>
+    
+    
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2025-05-23
+
+
+        </p>
+    
+    
+    
+    
+    <div><p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. <a href="https://github.com/Orange-Cyberdefense/GOAD">GOAD</a> with the ELK/Wazuh extension is (at the time of writing) the best choice (author&rsquo;s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - <em>Fine! I&rsquo;ll do it myself.</em></p>
+<blockquote>
+<p>PS: I’ve tried GOAD (v2) without the ELK/Wazuh stack. It’s a stellar lab that hits a lot of awesome topics. If you haven’t touched it yet, crawl out from under that rock and go check it out.</p>
+</blockquote>
+<h2 id="my-host-device-specifications">My host device specifications</h2>
+<p>The machine I used to built this lab has</p>
+<ul>
+<li>An AMD Ryzen 5500U processor - 6 Physical (12 Logical) cores</li>
+<li>32 gigs of RAM (which might&rsquo;ve been huge for ancient times, but since the dawn of LLMs I feel smol <em>and scared</em>.)</li>
+</ul>
+<h2 id="domain-controller">Domain Controller</h2>
+<h3 id="fetch-windows-server-image">Fetch Windows Server Image</h3>
+<p>Download the Windows Server 2022 VHD file from <a href="https://www.microsoft.com/en-us/evalcenter/download-windows-server-2022">here</a>. Create a copy of the downloaded file.</p>
+<h3 id="setup-a-vm">Setup a VM</h3>
+<p>I used VirtualBox to create a new VM named LAB-DC and imported the downloaded VHD file. I provided the lab with Virtualbox Host-Only network connection, which can be created leveraging the <code>Tools &gt; Network</code> window.</p>
+<p><img src="./virtualbox-network.png" alt="virtualbox-network"></p>
+<p>Boot up the VM and follow the installation steps:</p>
+<ol>
+<li>Select the Locale settings.</li>
+</ol>
+<p><img src="./locale.png" alt="locale"></p>
+<ol start="2">
+<li>
+<p>Accept the License agreement.</p>
+</li>
+<li>
+<p>Create a password for the administrator account. I used <code>lab@1234$</code>.</p>
+</li>
+</ol>
+<p><img src="./administrator-password.png" alt="administrator-password"></p>
+<ol start="4">
+<li>Click on Finish.</li>
+</ol>
+<h3 id="configure-vm-addons">Configure VM addons</h3>
+<ol start="5">
+<li>
+<p>Log-in as administrator.</p>
+</li>
+<li>
+<p>From the toolbar, select add &lsquo;Virtualbox Guest-Addons&rsquo;. Install it to improve the VMs execution.</p>
+</li>
+</ol>
+<p><img src="./vbox-guest-addons-1.png" alt="vbox-guest-addons-1"></p>
+<p><img src="./vbox-guest-addons-2.png" alt="vbox-guest-addons-2"></p>
+<p>Follow along after the server VM restarts.</p>
+<h3 id="set-the-server-hostname">Set the server hostname</h3>
+<ol start="7">
+<li>In the server manager application window, navigate to <code>Local Server</code> from the left pane. Click on <code>Computer Name</code> under <code>Properties</code>. Further, click on the <code>Change</code> button to change server name.</li>
+</ol>
+<p><img src="./server-name-1.png" alt="server-name-1"></p>
+<p><img src="./server-name-2.png" alt="server-name-2"></p>
+<p>Click on <code>OK</code> and restart the VM.</p>
+<h3 id="configure-the-static-ip-address">Configure the static IP address</h3>
+<ol start="8">
+<li>Hit <code>Win+R</code> and run <code>ncpa.cpl</code> to open Network Connections under Control Panel. View the property of the ethernet interface.</li>
+</ol>
+<p><img src="./static-ip-ethernet-properties.png" alt="static-ip-ethernet-properties"></p>
+<ol start="9">
+<li>Click on <code>Internet Protocol Version 4 (TCP/IPv4)</code> and select its properties. Set the preferred IP Address and set the gateway to Host&rsquo;s IP Address. Set the preferred DNS same as the IP Address of the server. Finally, click on <code>OK</code>.</li>
+</ol>
+<p><img src="./static-ip-ipv4-properties.png" alt="static-ip-ipv4-properties"></p>
+<h2 id="install-active-directory-domain-services">Install Active Directory Domain Services</h2>
+<ol start="10">
+<li>Launch <code>Server Manager</code>. Navigate to <code>Manage &gt; Add Roles and Features</code>. Continue with default installation.</li>
+</ol>
+<p><img src="./server-manager-manage-add-roles-and-features.png" alt="server-manager-manage-add-roles-and-features"></p>
+<p><img src="./add-roles-and-featuers-begin.png" alt="add-roles-and-featuers-begin"></p>
+<ol start="11">
+<li>Continue Clicking on next until <code>Select Server roles</code>. Select <code>Active Directory Domain Services</code> and click on <code>Add Features</code> in the window that pops-up.</li>
+</ol>
+<p><img src="./add-roles-and-featuers-select-server-roles.png" alt="add-roles-and-featuers-select-server-roles"></p>
+<p>Ensuring that <code>Active Directory Doman Services</code> is selected, click on <code>Next</code>.</p>
+<ol start="12">
+<li>
+<p>Go forward with default selection in <code>Features</code> and <code>AD DS</code> tab by clicking on <code>Next</code>.</p>
+</li>
+<li>
+<p>On the <code>Confirmation</code> tab, select the <code>Restart the destination server automatically if required</code> if required and click on <code>Install</code>.</p>
+</li>
+</ol>
+<p><img src="./add-roles-and-features-confirmation.png" alt="add-roles-and-features-confirmation"></p>
+<ol start="14">
+<li>Once greeted with following screen, click on the flag icon.</li>
+</ol>
+<p><img src="./add-roles-and-features-install-completed.png" alt="add-roles-and-features-install-completed"></p>
+<p>Under Post-deployment configuration section, click on <code>Promote this server to a domain controller</code>.\</p>
+<p><img src="./post-deployment-configuration-section.png" alt="post-deployment-configuration-section"></p>
+<ol start="15">
+<li>Create a new forest and set the appropriate name.</li>
+</ol>
+<p><img src="./post-deployment-create-forest.png" alt="post-deployment-create-forest"></p>
+<p>Click on next.</p>
+<ol start="16">
+<li>Let the forest functional level and domain functional level be at default of <code>Windows Server 2016</code>.</li>
+</ol>
+<p><img src="./post-deployment-functional-level.png" alt="post-deployment-functional-level"></p>
+<ol start="17">
+<li>Keep the default roles for the DC. Set the DSRM password. I used <code>labdsrm@1234$</code></li>
+</ol>
+<p><img src="./post-deployment-dsrm.png" alt="post-deployment-dsrm"></p>
+<ol start="18">
+<li>In the <code>DNS Options</code> menu, just click <code>Next</code>.</li>
+</ol>
+<p><img src="./post-deployment-dns.png" alt="post-deployment-dns"></p>
+<ol start="19">
+<li>
+<p>Follow through and click <code>Next</code> on verify the NetBIOS domain name.</p>
+</li>
+<li>
+<p>Under the <code>Paths</code> configuration window go with default settings if no changes are needed.</p>
+</li>
+</ol>
+<p><img src="./post-deployment-paths.png" alt="post-deployment-paths"></p>
+<ol start="21">
+<li>
+<p>Click on <code>Next</code> under <code>Review Options</code> window.</p>
+</li>
+<li>
+<p>After <code>Prerequisite Checks</code> pass, click on <code>Install</code> to continue.</p>
+</li>
+</ol>
+<p><img src="./post-deployment-prerequisite-checks.png" alt="post-deployment-prerequisite-checks"></p>
+<ol start="23">
+<li>Let the server restart.</li>
+</ol>
+<p><img src="./post-deployment-installation-complete.png" alt="post-deployment-installation-complete"></p>
+<ol start="24">
+<li>Once the server restarts, log in as <code>&lt;DOMAIN&gt;\Administrator</code> using the password of administrator we setup above while installing the VM (here: <code>lab@1234$</code>).</li>
+</ol>
+<h2 id="creating-domain-objects">Creating Domain Objects</h2>
+<h3 id="creating-organizational-units-ous">Creating Organizational Units (OUs)</h3>
+<blockquote>
+<p><strong>NOTE:</strong> One may skip this and directly add users.</p>
+</blockquote>
+<ol start="25">
+<li>Launch Server Manager and navigate to <code>Tools &gt; Active Directory Users and Computers</code></li>
+</ol>
+<p><img src="./ad-users-and-computers.png" alt="ad-users-and-computers"></p>
+<ol start="26">
+<li>Right-click on the <code>&lt;DOMAIN NAME&gt;</code> (here and hereafter <code>LAB.LOCAL</code> for us), select <code>New</code> and click on <code>Organizational Unit</code>.</li>
+</ol>
+<p><img src="./ad-new-ou.png" alt="ad-new-ou"></p>
+<p>In the dialog bog, provide with an OU name of your choice and click on <code>OK</code>.</p>
+<p><img src="./ad-new-ou-lab-ou.png" alt="ad-new-ou-lab-ou"></p>
+<p>We can create nested OUs by:</p>
+<ul>
+<li>Right-click on the OU of choice, navigate to <code>New &gt; Organizational Unit</code> and follow the process as above.</li>
+</ul>
+<p>I created two more OUs under our <code>LAB-OU</code> namely, <code>Users</code> and <code>Computers</code>, within <code>Users</code> I further created two OUs - <code>Administrators</code> and <code>Researchers</code>. (It made for a good practice)</p>
+<p><img src="./nested-ous.png" alt="nested-ous"></p>
+<h3 id="creating-a-user">Creating a User</h3>
+<ol start="27">
+<li>
+<p>Right-click the <code>Administrators</code> OU under <code>LAB-OU &gt; Users</code>, navigate to <code>New &gt; User</code>.</p>
+</li>
+<li>
+<p>Fill in the name details. Click on <code>Next</code>.</p>
+</li>
+</ol>
+<p><img src="./add-user-name.png" alt="add-user-name"></p>
+<ol start="29">
+<li>Set the password details and select any other configuration required (here: <code>admin@1234</code>). Click on <code>Next</code>.</li>
+</ol>
+<p><img src="./add-user-passwd.png" alt="add-user-passwd"></p>
+<ol start="30">
+<li>Click on <code>Finish</code>.</li>
+</ol>
+<blockquote>
+<p>Practise by creating multiple users.</p>
+</blockquote>
+<h3 id="promoting-a-user-to-domain-administrator">Promoting a user to Domain Administrator</h3>
+<ol start="31">
+<li>Right-click on the newly created user and navigate to <code>Properties</code>.</li>
+</ol>
+<p><img src="./user-properties.png" alt="user-properties"></p>
+<ol start="32">
+<li>Navigate to <code>Member Of</code> Tab. The screen should display the groups this particular user is part of.
+Click on <code>Add...</code>.</li>
+</ol>
+<p><img src="./user-member-of.png" alt="user-member-of"></p>
+<ol start="33">
+<li>In the <code>Select Groups</code> window, within the form-field labeled <strong>Enter the object names to select (examples)</strong>, enter <code>domain</code> and Click on <code>OK</code>.</li>
+</ol>
+<p><img src="./select-da-group-1.png" alt="select-da-group-1"></p>
+<p>A dialog box with all group names starting with <code>Domain</code> should appear, select the <code>Domain Admins</code> group and click on <code>OK</code>.</p>
+<p><img src="./select-da-group-2.png" alt="select-da-group-2"></p>
+<p>Click on <code>Apply</code>, then click on <code>OK</code>.</p>
+<h3 id="creating-a-group">Creating a Group</h3>
+<ol start="34">
+<li>Navigate to the OU of your choice, right-click and select <code>New &gt; Group</code>. Add details and click on <code>OK</code>.</li>
+</ol>
+<p><img src="./add-group.png" alt="add-group"></p>
+<h3 id="add-group-members">Add Group Members</h3>
+<ol start="35">
+<li>Right-click on the newly created group and select <code>Properties</code>. Open the <code>Members</code> Tab, click on <code>Add...</code>.</li>
+</ol>
+<p><img src="./group-members-1.png" alt="group-members-1"></p>
+<ol start="36">
+<li>A <code>Select Users, Contacts, Computers, Service Accounts, or Groups</code> window opens up. Within the form field under <strong>Enter the objct names to select (examples)</strong> enter the name of target user (click on <code>Check Names</code> to correct the format). Finally, click on <code>OK</code>.</li>
+</ol>
+<p><img src="./group-members-add-user.png" alt="group-members-add-user"></p>
+<p>Click on <code>Apply</code> and then click on <code>OK</code>.</p>
+<blockquote>
+<p>Group membership of user can be verified by navigating to user&rsquo;s <code>Properties &gt; Member Of</code>.</p>
+</blockquote>
+<h2 id="creating-a-file-share">Creating a File Share</h2>
+<ol start="37">
+<li>Create a new folder (here <code>test-share</code>).</li>
+</ol>
+<p><img src="./new-folder-test-share.png" alt="new-folder-test-share"></p>
+<ol start="38">
+<li>Navigate to <code>Properties &gt; Sharing</code> from the context-menu of the folder. Click on <code>Advanced Sharing</code>.</li>
+</ol>
+<p><img src="./test-share-sharing-tab.png" alt="test-share-sharing-tab"></p>
+<ol start="39">
+<li>Enable <code>Share this folder</code>. Configure <code>Share name</code> if needed, click on <code>Apply</code> and click on <code>OK</code>.</li>
+</ol>
+<p><img src="./test-share-advanced-sharing.png" alt="test-share-advanced-sharing"></p>
+<ol start="40">
+<li>Visit the DC and the file-share would be visible.</li>
+</ol>
+<p><img src="./run-lab-dc.png" alt="run-lab-dc"></p>
+<p><img src="./lab-dc-files-shares.png" alt="lab-dc-files-shares"></p>
+<h3 id="configure-file-share-permissions">Configure file-share permissions</h3>
+<ol start="41">
+<li>Navigate to <code>Properties &gt; Security</code> Tab from context-menu of the folder/file share.</li>
+</ol>
+<p><img src="./test-share-security-tab.png" alt="test-share-security-tab"></p>
+<ol start="42">
+<li>Click on <code>Edit</code>. Next, click on <code>Add...</code></li>
+</ol>
+<p><img src="./permissions-for-test-share.png" alt="permissions-for-test-share"></p>
+<ol start="43">
+<li>In the <code>Select Users, Computers, Service Accounts, Grups</code> window, search and select the entities. Click on <code>OK</code>.</li>
+</ol>
+<p><img src="./test-share-select-user.png" alt="test-share-select-user"></p>
+<ol start="44">
+<li>Change the Permissions for the entity from the <code>Allow</code>/<code>Deny</code> list. Finally, Click on <code>Apply</code> and <code>OK</code> respectively.</li>
+</ol>
+<p><img src="./test-share-user-permissions.png" alt="test-share-user-permissions"></p>
+<h2 id="adding-a-computer-to-the-ad-domain">Adding a computer to the AD Domain</h2>
+<p>A long time ago in a galaxy far, far away Microsoft offered Windows VM images to test Internet-Explorer. The files have since been archived across internet. One may grab the version that suits them <a href="https://archive.org/download/modern.ie-vm">here</a> all other places of their choice. I am using virtualbox, so it would be a virtualbox image in my case.</p>
+<ol start="45">
+<li>Download the archive, extract it and import the (here <code>.ova</code>) file in virtualbox (<code>Ctrl+I</code> for importing an image).</li>
+</ol>
+<p><img src="./ova-file.png" alt="ova-file"></p>
+<p><img src="./ova-import.png" alt="ova-import"></p>
+<blockquote>
+<p>Configure the network adapter of new machine to connect to Virtualbox host-only adapter (same as the DC).</p>
+</blockquote>
+<ol start="46">
+<li>Log into the VM (<code>IEUser:Passw0rd!</code>). Run (<code>Win+R</code>) <code>ncpa.cpl</code> to enter <code>Network Connections</code> window in <code>Control Panel &gt; Network and Interent</code>. Configure the DNS server to DC IP for the Ethernet interface by navigating through <code>Properties</code> (as above).</li>
+</ol>
+<p>Although the Virtualbox host-only adapter would provide this VM with a range in same subnet as DC through DHCP, I will configure a static IP for this machine (for identification purposes in my later projects).</p>
+<p><img src="./machine-network.png" alt="machine-network"></p>
+<ol start="47">
+<li>Launch <code>Settings</code> and go to <code>Accounts &gt; Access work or school</code>. Click on <code>Connect</code>.</li>
+</ol>
+<p><img src="./settings-add-account.png" alt="settings-add-account"></p>
+<ol start="48">
+<li>Click on <code>Join this device to a local Active Directory domain</code>.</li>
+</ol>
+<p><img src="./join-to-local-ad.png" alt="join-to-local-ad"></p>
+<ol start="49">
+<li>Enter the domain name in the <code>Join a domain</code> window. Click on <code>Next</code>.</li>
+</ol>
+<p><img src="./join-a-domain.png" alt="join-a-domain"></p>
+<ol start="50">
+<li>Enter the username and password of a Domain Administrator account to authenticate.</li>
+</ol>
+<p><img src="./login-in-ad.png" alt="login-in-ad"></p>
+<ol start="51">
+<li>Click on <code>Skip</code>.</li>
+</ol>
+<p><img src="./skip-rest.png" alt="skip-rest"></p>
+<p>Restart the VM.</p>
+<ol start="52">
+<li>Login using one of the user accounts created earlier.</li>
+</ol>
+<p><img src="./user-login-ad.png" alt="user-login-ad"></p>
+<ol start="53">
+<li>Go to <code>Control Panel &gt; Network and Interent &gt; Network and Sharing Center</code> to validate you are connected to the domain.</li>
+</ol>
+<p><img src="./network-and-sharing-center.png" alt="network-and-sharing-center"></p>
+<p>The reachability can be established from the command-prompt as follows:</p>
+<p><img src="./cmd-domain-reachability.png" alt="cmd-domain-reachability"></p>
+<blockquote>
+<p>The computer would be visible in the <code>Computers</code> Section under the <code>Active Directory Users and Computers</code>. It can be <em>dragged-and-dropped</em> to any OU we created.</p>
+</blockquote>
+<p><img src="./domain-joined-computer.png" alt="domain-joined-computer"></p>
+<h2 id="create-a-group-policy">Create a Group Policy</h2>
+<ol start="54">
+<li>Back on the DC machine, launch the <code>Server Manager</code> and go to <code>Tools &gt; Group Policy Management</code>.</li>
+</ol>
+<p><img src="./group-policy-management.png" alt="group-policy-management"></p>
+<p>One can navigate through different Organizational Units (OUs), and select the one required.</p>
+<p><img src="./gpm-ous.png" alt="gpm-ous"></p>
+<h3 id="group-policy-to-create-a-local-administrator-account">Group policy to create a local administrator account</h3>
+<ol start="55">
+<li>Right click on the OU with computers, select <code>Create a GPO in this domain, and Link it here...</code></li>
+</ol>
+<p><img src="./create-a-gpo-and-link-it-here.png" alt="create-a-gpo-and-link-it-here"></p>
+<ol start="56">
+<li>Provide a name for the new Group Policy Object (GPO) and click on <code>OK</code>.</li>
+</ol>
+<p><img src="./new-gpo-name.png" alt="new-gpo-name"></p>
+<ol start="57">
+<li>Right-click on the newly created GPO and select <code>Edit</code>.</li>
+</ol>
+<p><img src="./edit-gpo.png" alt="edit-gpo"></p>
+<ol start="58">
+<li>A <code>Group Policy Management Editor</code> window pops-up. Go to <code>Preferences &gt; Control Panel Settings</code> and select <code>Local Users and Groups</code>. Right-click on the table (empty here), and select <code>New &gt; Local Group</code>.</li>
+</ol>
+<p><img src="./local-users-and-groups.png" alt="local-users-and-groups"></p>
+<ol start="59">
+<li>Within the <code>New Local Group Properties</code>, set the <code>Action</code> to be <code>Update</code>. Select the <code>Group name</code> to be <code>Administrators (built-in)</code> from the drop-down menu.</li>
+</ol>
+<p><img src="./groups-drop-down.png" alt="groups-drop-down"></p>
+<ol start="60">
+<li>Click on <code>Add</code> under <code>Members</code> table.</li>
+</ol>
+<p><img src="./add-groupmember.png" alt="add-groupmember"></p>
+<ol start="61">
+<li>Click on the <code>...</code> button beside name to spawn the <code>Select User, Computer, or Group</code> window.</li>
+</ol>
+<p><img src="./local-group-member-add-3-button.png" alt="local-group-member-add-3-button"></p>
+<ol start="62">
+<li>Enter the object name (here <code>ashtrace</code>, a domain-joned user I created earlier). Click on <code>Check Names</code> to retrieve the particular user name in correct format. Click on <code>OK</code>.</li>
+</ol>
+<p><img src="./select-user-ashtrace.png" alt="select-user-ashtrace"></p>
+<p>Click on <code>OK</code> again (Notice that the user name is prefixed by the domain name.)</p>
+<p><img src="./select-user-ashtrace-2.png" alt="select-user-ashtrace-2"></p>
+<p>Finally, Click on <code>Apply</code> and <code>OK</code> respectively.</p>
+<ol start="63">
+<li>Validate the GPO by going back to <code>Group Policy Management</code> Window, navigate to the OU and select the GPO created. Visit the <code>Settings</code> tab.</li>
+</ol>
+<p><img src="./gpo-settings-page.png" alt="gpo-settings-page"></p>
+<p>Titles can be expanded through clicks over them, and it can be observed that the GPO updates the membership of the built-in administrators group.</p>
+<p><img src="./gpo-settings-page-2.png" alt="gpo-settings-page-2"></p>
+<blockquote>
+<p>A window-pop with alert from internet-explorer/edge might spawn complaining website trust issues as the setting page renders an HTML file. Go forth and trust the source, by selecting <code>Add</code> in the window itself, to render the contents.</p>
+</blockquote>
+<h3 id="syncing-group-policy-updates">Syncing group policy updates</h3>
+<ol start="64">
+<li>
+<p>Go to the machine added earlier.</p>
+</li>
+<li>
+<p>Either reboot it, or spawn a command prompt and type <code>gpupdate /force</code>.</p>
+</li>
+<li>
+<p>Once update, open up file explorer. Right-click on <code>This PC</code> and select <code>Manage</code>.</p>
+</li>
+</ol>
+<p><img src="./this-pc-manage.png" alt="this-pc-manage"></p>
+<p>Within the <code>Computer Management</code> window, go to <code>Local Users and Groups</code>. Double-click on <code>Groups</code>, followed by a <code>double-click</code> on <code>Administrators</code>.</p>
+<p><img src="./administrators-group-members.png" alt="administrators-group-members"></p>
+<p>It is evident that <code>LAB\ashtrace</code> is a member of the builtin-administratosr group now, and their credential can be used to exeute task with administrative privileges.</p>
+<h2 id="add-a-server-to-ad-lab">Add a Server to AD Lab</h2>
+<ol start="66">
+<li>Use the copy of the Windows server VHD image we created earlier, to spawn a new VM machine connected to the Virtualbox Host-Only adapter.</li>
+</ol>
+<blockquote>
+<p><strong>NOTE</strong>: If you get UUID conflict run <code>C:\Users\ashtrace\VMs&gt;&quot;C:\Program Files\Oracle\VirtualBox\VBoxManage.exe&quot; internalcommands sethduuid &lt;path-to-vhd-file&gt;</code></p>
+</blockquote>
+<ol start="67">
+<li>
+<p>Configure the locale settings and setup the administrator password (reference the steps executed when preparing VM for the DC i.e. steps 1-2-3-4).</p>
+</li>
+<li>
+<p>Once the VM reboots, through the server manager configure a hostname for the VM (reference step 7). I named the server <code>LAB-SRV</code>.</p>
+</li>
+<li>
+<p>After the VM restarts again, configure a static IP address and enter the DC&rsquo;s IP for DNS (reference step 46, use credential setup for lab server to login).</p>
+</li>
+</ol>
+<p><img src="./lab-srv-ip.png" alt="lab-srv-ip"></p>
+<ol start="70">
+<li>Open file explorer. Right-click on <code>This PC</code>, select <code>Properties</code>. This opens up the <code>About</code> page in <code>Settings</code>. Scroll-down and click on <code>Advanced system settings</code>. In the pop-window go to <code>Computer Name</code> tab and click on <code>Change</code>.</li>
+</ol>
+<p><img src="./lab-srv-connect-to-domain.png" alt="lab-srv-connect-to-domain"></p>
+<ol start="71">
+<li>Switch to <code>Domain</code> from <code>Workgroup</code> and enter the domain name (here: <code>LAB.LOCAL</code>), enter the domain administrator credentials. After successful authentication a dialog box with message <code>Welcome to domain &lt;domain name&gt;</code> should appear. Restart the VM when asked.</li>
+</ol>
+<p><img src="./lab-srv-connect-to-domain-auth.png" alt="lab-srv-connect-to-domain-auth"></p>
+<ol start="72">
+<li>After reboot, use domain credentials to log onto the server. I used the <code>ashtrace</code> account credentials as it would be part of the built-in administrator group owing the GPO created earlier (Ensure that the LAB-SRV machine is part of the OU to which the GPO has been mapped, if not on the DC, open up <code>Server Manager</code> &gt; go to <code>Active Directory Users and Computers</code> from <code>Computers</code> drag the <code>LAB-SRV</code> machine to the particular OU (<code>LAB-OU &gt; Computers</code> in this case), back on the <code>LAB-SRV</code> machine run <code>gpupdate /force</code> and reboot)</li>
+</ol>
+<h3 id="configure-iis-service-on-the-newly-added-server">Configure IIS service on the newly added server</h3>
+<blockquote>
+<p>We briefly enable a second network adapter for the VM and allow access to the Wi-fi network.</p>
+</blockquote>
+<p><img src="./bridged-network-lab-srv.png" alt="bridged-network-lab-srv"></p>
+<ol start="73">
+<li>
+<p>In the <code>Server Manager</code> Application, select to <code>Manage &gt; Add Roles and Features</code>. Select <code>Role-based or feature-based installation</code> mode and click on <code>Next</code>. Ensure that the server is selected in <code>Server Selection</code> window.</p>
+</li>
+<li>
+<p>Select <code>Web Server IIS</code> in the <code>Server Roles</code> window and click on <code>Add features</code> in the pop-window that appears. Click on <code>Next</code>.</p>
+</li>
+</ol>
+<p><img src="./web-server-iis-role.png" alt="web-server-iis-role"></p>
+<ol start="75">
+<li>Click on <code>Next</code> in <code>Features</code> window followed by another <code>Next</code>. In the <code>Web Server Role (IIS)</code> window&rsquo;s <code>Role services</code> list select following under <code>Application Development</code> (if you want ASP.NET support) along with the default features selected. Click on <code>Next</code>.</li>
+</ol>
+<p><img src="./web-server-iis-roles-services.png" alt="web-server-iis-roles-services"></p>
+<ol start="76">
+<li>
+<p>Under <code>Confirmation</code> allow the wizard to restart the VM if needed and click on <code>Install</code>.</p>
+</li>
+<li>
+<p>Once the installation succeeds, visit the server from the workstation added earlier to establish if the IIS service is up and running.</p>
+</li>
+</ol>
+<p><img src="./iis-default-page-on-lab-srv.png" alt="iis-default-page-on-lab-srv"></p>
+<h2 id="adding-xdr">Adding XDR</h2>
+<p>Wazuh is an open-source XDR. It ships <a href="https://documentation.wazuh.com/current/deployment-options/virtual-machine/virtual-machine.html">OVA</a> image among other installation methods.</p>
+<ol start="78">
+<li>
+<p>Download the OVA file and import it in Virtualbox.</p>
+</li>
+<li>
+<p>Change the network adapter to host-only, change the graphics controller to <code>VMSVGA</code> (under <code>Settings &gt; Display &gt; Graphics Controller</code>) and enable the <code>Enable Hardware Clock in UTC Time</code> feature under <code>Settings &gt; System &gt; Extended Features</code>.</p>
+</li>
+<li>
+<p>Power-up the VM, login using credentials <code>wazuh-user:wazuh</code>.</p>
+</li>
+</ol>
+<h3 id="setup-static-ip-address">Setup static IP address</h3>
+<ol start="81">
+<li>Find the name of the ethernet interface using <code>ip a</code>.</li>
+</ol>
+<pre tabindex="0"><code>[wazuh-user@wazuh-server ~]$ ip a
+1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute
+       valid_lft forever preferred_lft forever
+2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 08:00:27:bf:d2:7c brd ff:ff:ff:ff:ff:ff
+    altname enp0s17
+    inet 192.168.56.107/24 brd 192.168.56.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::a00:27ff:febf:d27c/64 scope link proto kernel_ll
+       valid_lft forever preferred_lft forever
+</code></pre><ol start="82">
+<li>Check the status of the ethernet interface to identify the file being used to manage it from <code>systemd-networkd</code> by running <code>networkctl status &lt;interface-name&gt;</code> (here and hereafter the interface-name is <code>eth0</code>)</li>
+</ol>
+<pre tabindex="0"><code>[wazuh-user@wazuh-server ~]$ networkctl status eth0
+● 2: eth0
+                     Link File: /usr/lib/systemd/network/99-default.link
+                  Network File: /etc/systemd/network/10-cloud-init-eth0.network
+                         State: routable (configured)
+                  Online state: online
+                          Type: ether
+                          Path: pci-0000:00:11.0
+                        Driver: e1000
+                        Vendor: Intel Corporation
+                         Model: 82545EM Gigabit Ethernet Controller (Copper) (PRO/1000 MT Single Port Adapter)
+             Alternative Names: enp0s17
+              Hardware Address: 08:00:27:bf:d2:7c (PCS Systemtechnik GmbH)
+                           MTU: 1500 (min: 46, max: 16110)
+                         QDisc: fq_codel
+  IPv6 Address Generation Mode: eui64
+      Number of Queues (Tx/Rx): 1/1
+              Auto negotiation: yes
+                         Speed: 1Gbps
+                        Duplex: full
+                          Port: tp
+                       Address: 192.168.56.107 (DHCP4 via 192.168.56.100)
+                                fe80::a00:27ff:febf:d27c
+             Activation Policy: up
+           Required For Online: yes
+               DHCP4 Client ID: IAID:0x62b7eef0/DUID
+             DHCP6 Client DUID: DUID-EN/Vendor:0000ab116c1ecb03a0526b40
+</code></pre><ol start="83">
+<li>Check the value of <code>Network File</code> attribute (here: <code>/etc/systemd/network/10-cloud-init-eth0.network</code>). Create a file with name <code>&lt;words-between-number-and-interface&gt;.disabled</code> (eg: <code>cloud-init.disabled</code>)</li>
+</ol>
+<pre tabindex="0"><code>[wazuh-user@wazuh-server ~]$ sudo touch /etc/cloud/cloud-init.disabled
+</code></pre><ol start="84">
+<li>Remove the file discovered as value of <code>Network File</code> attribute.</li>
+</ol>
+<pre tabindex="0"><code>[wazuh-user@wazuh-server ~]$ sudo rm /etc/systemd/network/10-cloud-init-eth0.network
+</code></pre><ol start="85">
+<li>Create a new file <code>/etc/systemd/network/10-static.network</code></li>
+</ol>
+<pre tabindex="0"><code>[Match]
+Name=eth0
+
+[Network]
+Address=192.168.56.150/24
+Gateway=192.168.56.1
+DNS=8.8.8.8
+DNS=1.1.1.1
+</code></pre><ol start="86">
+<li>Restart the <code>systemd-networkd</code> service.</li>
+</ol>
+<pre tabindex="0"><code>sudo systemctl restart systemd-networkd
+</code></pre><ol start="87">
+<li>Validate the changes through <code>networkctl status eth0</code>.</li>
+</ol>
+<h3 id="access-the-wazuh-dashboard">Access the Wazuh dashboard</h3>
+<ol start="88">
+<li>Visit the URL through IP address configured earlier (here: <code>https://192.168.56.107</code>) and credential <code>admin:admin</code>.</li>
+</ol>
+<p><img src="./wazuh-dashboard.png" alt="wazuh-dashboard"></p>
+<h3 id="deploy-wazuh-agents">Deploy Wazuh agents</h3>
+<ol start="89">
+<li>Click on <code>Agent Management &gt; Summary</code> from the hamburger menu icon on the top left of the dashboard. For your first agent <code>Deploy new agent</code> page should appear, further agents can be added via clicking on <code>Deploy new agent</code> button.</li>
+</ol>
+<p><img src="./deploy-new-agent-first-wazuh-agent.png" alt="deploy-new-agent-first-wazuh-agent"></p>
+<ol start="90">
+<li>Under <code>Select the package to download and install on your system:</code> select <code>Windows: MSI 32/64 bits</code>. Under <code>Server address</code>, add the add IP address configured for this wazuh-server VM.</li>
+</ol>
+<p><img src="./deploy-new-agent-windows-installer-1.png" alt="deploy-new-agent-windows-installer-1"></p>
+<ol start="91">
+<li>Skip optional settings, the command under <code>Run the following commands to download and install the agent:</code> fetches the installer from <code>packages.wazuh.com</code> thus for the sake of installation enable a second network adapter on the VMs and provide access to internet through <code>Bridged Adapter</code>.</li>
+</ol>
+<p><img src="./bridged-adapter.png" alt="bridged-adapter"></p>
+<ol start="92">
+<li>Log onto the target VM with administrative account (Domain administrator on <code>LAB-DC</code> and local administrator, for e.g. the one created earlier through GPO, on the workstation and server <code>LAB-SRV</code>). Open a PowerShell session with administrative privileges. Copy the command from <code>Run the following commands to download and install the agent:</code> section of the <code>Deploy new agent</code> page and run it in the PowerShell session.</li>
+</ol>
+<p><img src="./wazuh-agent-installation-command-powershell.png" alt="wazuh-agent-installation-command-powershell"></p>
+<ol start="93">
+<li>After the command is executed run <code>NET START WazuhSvc</code> from the same powershell session. Through <code>Task Manager &gt; Services</code> it is evident a certian <code>WazuhSvc</code> service was created and is running.</li>
+</ol>
+<p><img src="./wazuh-svc.png" alt="wazuh-svc"></p>
+<p>After a while the agent would be visible on the <code>Agent Management &gt; Summary</code> dashboard (first as <code>Never connected</code> then as <code>Active</code>.)</p>
+<p><img src="./agent-management-summary-dashboard-agent-active.png" alt="agent-management-summary-dashboard-agent-active"></p>
+<ol start="94">
+<li>Repeat the steps to install the agent on other VM machines in the <code>LAB.LOCAL</code> domain. Finally, the <code>Agent Management &gt; Summary</code> should look like this.</li>
+</ol>
+<p><img src="./agent-management-summary-dashboard-all-agents.png" alt="agent-management-summary-dashboard-all-agents"></p>
+<h2 id="finally">Finally</h2>
+<ol start="95">
+<li>
+<p>Agument this lab setup by adding on other servers and configurations like delegation, PKI etc. and do share the guides and resources with me.</p>
+</li>
+<li>
+<p>Eat</p>
+</li>
+<li>
+<p>Sleep</p>
+</li>
+<li>
+<p>Hack</p>
+</li>
+<li>
+<p>Repeat</p>
+</li>
+<li>
+<p>Stay Hydrated</p>
+</li>
+<li>
+<p>Touch Grass</p>
+</li>
+</ol>
+<h2 id="quick-troubleshoot">Quick Troubleshoot</h2>
+<ul>
+<li>The log of wazuh agent can be viewed from the file <code>C:\Program Files (x86)\ossec-agent\ossec.log</code></li>
+</ul>
+</div>
+</article>
+
+    <hr />
+    <p class="articleTagsContainer">
+        <span> </span>
+        <strong>Tags:</strong>
+        
+            <a
+                
+                href="/tags/active-directory/">#active directory</a>
+        
+    </p>
+
+
+
+
+
+
+                    </main><footer>
+    <hr />
+
+<p><small>
+        2025 &copy; Just adhere to <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>
+    </small></p>
+    <p><small>
+        <a href='https://gitlab.com/gabmus/hugo-ficurinia'>Ficurinia theme</a> for <a href='https://gohugo.io'>Hugo</a> by <a href='https://gabmus.org'>Gabriele Musco</a>. Licensed under <a href='https://www.gnu.org/licenses/agpl-3.0.html'>GNU AGPLv3</a>.
+    </small></p>
+</footer>
+</div>
+            </div>
+        </div>
+
+
+</body>
+</html>
