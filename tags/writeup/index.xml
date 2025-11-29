@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><?xml-stylesheet href="/feed_style.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="https://www.rssboard.org/media-rss">
   <channel>
     <title>Writeup on ashtrace | blog</title>
-    <link>http://localhost:1313/tags/writeup/</link>
+    <link>https://ashtrace.github.io/tags/writeup/</link>
     <description>Recent content in Writeup on ashtrace | blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Tue, 14 Jan 2025 12:48:53 +0530</lastBuildDate><atom:link href="http://localhost:1313/tags/writeup/index.xml" rel="self" type="application/rss+xml" /><icon>http://localhost:1313/logo.svg</icon>
+    <lastBuildDate>Tue, 14 Jan 2025 12:48:53 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/writeup/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
     
     
     <item>
       <title>How are functions resolved: A jump across tables into dl_resolve</title>
-      <link>http://localhost:1313/posts/how_functions_resolve/</link>
+      <link>https://ashtrace.github.io/posts/how_functions_resolve/</link>
       <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>http://localhost:1313/posts/how_functions_resolve/</guid>
+      <guid>https://ashtrace.github.io/posts/how_functions_resolve/</guid>
       <description><![CDATA[<p>While going through another one of those easy challenges (this one dealing with ret2dlresolve), I encountered the following piece of exploit in the writeup which possessed limited verbosity for me and with this level of abstraction I could not figure out what the exploit actually was. Thus I put on my gloves and decided to dig into the dl_resolve process.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-py" data-lang="py"><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
 </span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> ELF(<span style="color:#e6db74">&#39;./challenge_binary&#39;</span>)
@@ -500,10 +500,10 @@ Tag        Type                         Name/Value
     
     <item>
       <title>Tracing file descriptors: A battle against poor writeups</title>
-      <link>http://localhost:1313/posts/tracing_file_descriptors/</link>
+      <link>https://ashtrace.github.io/posts/tracing_file_descriptors/</link>
       <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
       
-      <guid>http://localhost:1313/posts/tracing_file_descriptors/</guid>
+      <guid>https://ashtrace.github.io/posts/tracing_file_descriptors/</guid>
       <description><![CDATA[<p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&rsquo;t satify my itch.</p>
 <p><img src="./writeup-remote-section.jpeg" alt="writeup-remote-section"></p>
 <p>There was no explanation regarding why the value of file-descriptor was to be <code>5</code>. Thus I went on a quest to trace for it.</p>
