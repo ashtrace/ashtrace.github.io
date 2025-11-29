@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><?xml-stylesheet href="/feed_style.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="https://www.rssboard.org/media-rss">
   <channel>
     <title>ashtrace | blog</title>
-    <link>https://ashtrace.github.io/</link>
+    <link>http://localhost:1313/</link>
     <description>Recent content on ashtrace | blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Fri, 23 May 2025 13:06:50 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Fri, 23 May 2025 13:40:31 +0530</lastBuildDate><atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" /><icon>http://localhost:1313/logo.svg</icon>
     
     
     <item>
       <title>AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps</title>
-      <link>https://ashtrace.github.io/posts/building_homelab/</link>
-      <pubDate>Fri, 23 May 2025 13:06:50 -0400</pubDate>
+      <link>http://localhost:1313/posts/building_homelab/</link>
+      <pubDate>Fri, 23 May 2025 13:40:31 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/posts/building_homelab/</guid>
-      <description><![CDATA[<p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. <a href="https://github.com/Orange-Cyberdefense/GOAD">GOAD</a> with the ELK/Wazuh extension is (at the time of writing) the best choice (author&rsquo;s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - <em>Fine! I&rsquo;ll do it myself.</em></p>
+      <guid>http://localhost:1313/posts/building_homelab/</guid>
+      <description><![CDATA[<p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (author’s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - Fine! I’ll do it myself.</p>
 <blockquote>
 <p>PS: I’ve tried GOAD (v2) without the ELK/Wazuh stack. It’s a stellar lab that hits a lot of awesome topics. If you haven’t touched it yet, crawl out from under that rock and go check it out.</p>
 </blockquote>
@@ -23,7 +23,7 @@
 <p>The machine I used to built this lab has</p>
 <ul>
 <li>An AMD Ryzen 5500U processor - 6 Physical (12 Logical) cores</li>
-<li>32 gigs of RAM (which might&rsquo;ve been huge for ancient times, but since the dawn of LLMs I feel smol <em>and scared</em>.)</li>
+<li>32 gigs of RAM (which might’ve been huge for ancient times, but since the dawn of LLMs I feel smol and scared.)</li>
 </ul>
 <h2 id="domain-controller">Domain Controller</h2>
 <h3 id="fetch-windows-server-image">Fetch Windows Server Image</h3>
@@ -585,11 +585,11 @@ DNS=1.1.1.1
     
     <item>
       <title>How are functions resolved: A jump across tables into dl_resolve</title>
-      <link>https://ashtrace.github.io/posts/how_functions_resolve/</link>
-      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      <link>http://localhost:1313/posts/how_functions_resolve/</link>
+      <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/posts/how_functions_resolve/</guid>
-      <description><![CDATA[<p>While going through another one of those <em>easy</em> challenges (this one dealing with ret2dlresolve), I encountered the following piece of exploit in the writeup which possessed limited verbosity for me and with this level of abstraction I could not figure out what the exploit actually was. Thus I put on my gloves and decided to dig into the dl_resolve process.</p>
+      <guid>http://localhost:1313/posts/how_functions_resolve/</guid>
+      <description><![CDATA[<p>While going through another one of those easy challenges (this one dealing with ret2dlresolve), I encountered the following piece of exploit in the writeup which possessed limited verbosity for me and with this level of abstraction I could not figure out what the exploit actually was. Thus I put on my gloves and decided to dig into the dl_resolve process.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-py" data-lang="py"><span style="display:flex;"><span><span style="color:#f92672">from</span> pwn <span style="color:#f92672">import</span> <span style="color:#f92672">*</span>
 </span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> ELF(<span style="color:#e6db74">&#39;./challenge_binary&#39;</span>)
 </span></span><span style="display:flex;"><span>p <span style="color:#f92672">=</span> elf<span style="color:#f92672">.</span>process()
@@ -607,7 +607,7 @@ DNS=1.1.1.1
 <p>PS: No grudges against the author of the writeup or challenge. I am thankful for them to introduce me to a new topic.</p>
 </blockquote>
 <h2 id="context-information">Context Information</h2>
-<p>We are provided with an ELF binary. I&rsquo;ve tried my best to redact the challenge name.</p>
+<p>We are provided with an ELF binary (I’ve tried my best to redact the challenge name).</p>
 <h2 id="binary-executable-security-mitigation-enumeration">Binary Executable Security Mitigation Enumeration</h2>
 <pre tabindex="0"><code>Arch:       amd64-64-little
 RELRO:      Partial RELRO
@@ -667,7 +667,7 @@ Stripped:   No
 <pre tabindex="0"><code>0x404018 &lt;read@got.plt&gt;:        0x00007ffff7ee1780
 </code></pre><h2 id="understanding-resolution-sections-and-structures-in-elf">Understanding resolution sections and structures in ELF</h2>
 <p>In order to resolve the functions, there are 3 structures that need to exist within the binary. Faking these 3 structures could enable us to trick the linker into resolving a function of our choice, and we can also pass parameters in (such as <em>/bin/sh</em>) once resolved.</p>
-<pre tabindex="0"><code>readelf -d challenge_binary
+<pre tabindex="0"><code>readelf -d void
 
 Tag        Type                         Name/Value
 
@@ -692,8 +692,8 @@ Offset     Info    Type            Sym.Value  Sym. Name
 0804c010  00000307 R_386_JUMP_SLOT   00000000   __libc_start_main@GLIBC_2.0
 </code></pre></li>
 <li>
-<p>amd64 <em>challenge_binary</em> ELF:</p>
-<pre tabindex="0"><code>readelf -r challenge_binary
+<p>amd64 <em>void</em> ELF:</p>
+<pre tabindex="0"><code>readelf -r void
 
 Relocation section &#39;.rela.dyn&#39; at offset 0x400 contains 2 entries:
 Offset          Info           Type           Sym. Value    Sym. Name + Addend
@@ -751,7 +751,7 @@ LOAD:0000000000400430 00 00 01 00 00 00 00 00 00 00+LOAD ends
 </span></span><span style="display:flex;"><span>    r_info <span style="color:#f92672">=</span> ((Elf64_Xword)s <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">32</span>) <span style="color:#f92672">+</span> (t <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0xffffffffL</span>);
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>};
-</span></span></code></pre></div><p>The <code>R_SYM</code> value of read (in <em>challenge_binary</em> ELF) would be 1 (0x000100000007 &raquo; 32).</p>
+</span></span></code></pre></div><p>The <code>R_SYM</code> value of read (in <em>void</em> ELF) would be 1 (0x000100000007 &raquo; 32).</p>
 <p>The type <code>R_386_JUMP_SLOT</code> and <code>R_X86_64_JUMP_SLOT</code> means that the entry is for GOT section.</p>
 <p>Eg: IDA&rsquo;s listing of JUMPREL of <em>example</em> amd64 ELF.</p>
 <pre tabindex="0"><code>LOAD:04005C0 ; ELF JMPREL Relocation Table
@@ -779,7 +779,7 @@ LOAD:0400608 Elf64_Rela &lt;404030h, 500000007h, 0&gt; ; R_X86_64_JUMP_SLOT read
 </ul>
 <h3 id="strtab-dynstr">STRTAB (.dynstr)</h3>
 <p>STRTAB is a simple table that stores the strings for symbols name.</p>
-<p>IDA&rsquo;s listing for STRTAB for <em>challenge_binary</em></p>
+<p>IDA&rsquo;s listing for STRTAB for <em>void</em></p>
 <pre tabindex="0"><code>LOAD:0000000000400390                               ; ELF String Table
 LOAD:0000000000400390 00                            unk_400390 db    0                      ; DATA XREF: LOAD:0000000000400348↑o
 LOAD:0000000000400390                                                                       ; LOAD:0000000000400360↑o
@@ -839,7 +839,7 @@ Contains a symbol table using <code>Elf64_Sym</code> structures. Every structure
 <p>st_size: the symbol’s size. If the symbol has no size or the size is unknown, it contains 0.</p>
 </li>
 <li>
-<p>IDA listing <em>challenge_binary</em></p>
+<p>IDA listing <em>void</em> binary</p>
 <pre tabindex="0"><code>LOAD:0000000000400330                               ; ELF Symbol Table
 LOAD:0000000000400330 00 00 00 00 00 00 00 00 00 00+Elf64_Sym &lt;0&gt;
 LOAD:0000000000400348 01 00 00 00 12 00 00 00 00 00+Elf64_Sym &lt;offset aRead - offset unk_400390, 12h, 0, 0, 0, 0&gt; ; &#34;read&#34;
@@ -860,11 +860,11 @@ LOAD:0400450 Elf64_Sym &lt;offset aRead - offset unk_4004B0, 12h, 0, 0, 0, 0&gt;
 <blockquote>
 <p>The most important value here is <strong>st_name</strong> as this <strong>gives the offset in STRTAB of the symbol name.</strong> The other fields are not relevant to the exploit itself.</p>
 </blockquote>
-<h3 id="jmprel-symtab-and-strtab-for-challenge_binary-elf">JMPREL, SYMTAB AND STRTAB for challenge_binary ELF</h3>
+<h3 id="jmprel-symtab-and-strtab-for-void-elf">JMPREL, SYMTAB AND STRTAB for void ELF</h3>
 <ul>
 <li>
 <p>Base section addresses</p>
-<pre tabindex="0"><code>readelf -d challenge_binary
+<pre tabindex="0"><code>readelf -d void
 
 Tag        Type                         Name/Value
 
@@ -931,11 +931,11 @@ Tag        Type                         Name/Value
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">#pwn.context.terminal = [&#39;tmux&#39;, &#39;splitw&#39;, &#39;-h&#39;]</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>exe <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;./challenge_binary&#34;</span>
+</span></span><span style="display:flex;"><span>exe <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;./void&#34;</span>
 </span></span><span style="display:flex;"><span>elf <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>context<span style="color:#f92672">.</span>binary <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>ELF(exe, checksec <span style="color:#f92672">=</span> <span style="color:#66d9ef">False</span>)
 </span></span><span style="display:flex;"><span>rop <span style="color:#f92672">=</span> pwn<span style="color:#f92672">.</span>ROP(elf)
-</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.process(&#34;./challenge_binary&#34;)</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.gdb.debug(&#34;./challenge_binary&#34;, gdbscript = &#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.process(&#34;./void&#34;)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#proc = pwn.gdb.debug(&#34;./void&#34;, gdbscript = &#34;&#34;&#34;</span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">#                     b *0x000000000040113b</span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">#                     c</span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">#                     &#34;&#34;&#34;)</span>
@@ -1064,8 +1064,8 @@ Tag        Type                         Name/Value
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span>proc<span style="color:#f92672">.</span>interactive()
 </span></span></code></pre></div><h2 id="post-exploitation">Post Exploitation</h2>
-<p>Post-exploitation I drated a meme that looked cool to me and adhered to <em>then</em> meme trends.</p>
-<p><img src="./ret2dl_resolve_meme.jpeg" alt="ret2dl_resolve_meme"></p>
+<p>Post-exploitation I drafted a meme that looked cool to me and adhered to <em>then</em> meme trends.</p>
+<p><img src="./ret2dl_resolve_meme.jpeg" alt="ret2dl_resolve_meme.jpeg"></p>
 ]]></description>
       
     </item>
@@ -1074,13 +1074,13 @@ Tag        Type                         Name/Value
     
     <item>
       <title>Tracing file descriptors: A battle against poor writeups</title>
-      <link>https://ashtrace.github.io/posts/tracing_file_descriptors/</link>
+      <link>http://localhost:1313/posts/tracing_file_descriptors/</link>
       <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/posts/tracing_file_descriptors/</guid>
-      <description><![CDATA[<p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found this:</p>
+      <guid>http://localhost:1313/posts/tracing_file_descriptors/</guid>
+      <description><![CDATA[<p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&rsquo;t satify my itch.</p>
 <p><img src="./writeup-remote-section.jpeg" alt="writeup-remote-section"></p>
-<p>There was no explanation regarding the value of file-descriptor. Thus I went on a quest to trace for the value.</p>
+<p>There was no explanation regarding why the value of file-descriptor was to be <code>5</code>. Thus I went on a quest to trace for it.</p>
 <blockquote>
 <p>PS: Please bear with me while we fight togther to tally all those numbers :)  (<em>I tried my best to redact challenge name</em>)</p>
 </blockquote>
@@ -1233,7 +1233,7 @@ Stripped:   No
 </span></span></code></pre></div><p>The script worked locally, but failed on remote instance.</p>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <p>I made slight change to the Dockerfile to install <code>strace</code> and use it to trace my calls</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Dockerfile" data-lang="Dockerfile"><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Dockerfile" data-lang="Dockerfile"><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">ENV</span> DEBIAN_FRONTEND noninteractive<span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get update --fix-missing <span style="color:#f92672">&amp;&amp;</span> apt-get -y upgrade<span style="color:#960050;background-color:#1e0010">
@@ -1245,10 +1245,10 @@ Stripped:   No
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> chown -R ctf:ctf /home/ctf/<span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span><span style="color:#e6db74"> /home/ctf</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span><span style="color:#e6db74"> ctf</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/home/ctf</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span> <span style="color:#e6db74">ctf</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span><span style="color:#e6db74"> 9001/tcp</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span> <span style="color:#e6db74">9001/tcp</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">ENTRYPOINT</span> [<span style="color:#e6db74">&#34;strace&#34;</span>, <span style="color:#e6db74">&#34;-f&#34;</span>, <span style="color:#e6db74">&#34;socat&#34;</span>, <span style="color:#e6db74">&#34;TCP-LISTEN:9001,fork&#34;</span>, <span style="color:#e6db74">&#34;EXEC:&#39;./challengeBinary&#39;&#34;</span>]<span style="color:#960050;background-color:#1e0010">
 </span></span></span></code></pre></div><p>When I ran my exploit against the docker container, I observed that contrary to my assumption of fd being <code>3</code>, <strong>when flag.txt was opened it was assigned <code>5</code> fd number</strong>.</p>

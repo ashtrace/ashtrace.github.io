@@ -1,7 +1,7 @@
 {
 	"version": 3,
 	"file": "styles.css",
-	"sourceRoot": "/home/kali/blogstuff/blog/ashtrace_blog",
+	"sourceRoot": "/home/aishwarya/Documents/blog/ashtrace_blog",
 	"sources": [
 		"themes/hugo-ficurinia/assets/scss/style.scss"
 	],

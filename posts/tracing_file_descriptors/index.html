@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="" lang="en-us"><head>
+<html class="" lang="en-us"><head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
     
     <meta name="robots" content="noai, noimageai">
     <meta name="viewport" content="width=device-width" />
@@ -39,15 +39,16 @@
 
     
     
-    <link type="text/css" rel="stylesheet" href=https://ashtrace.github.io/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
+    <link type="text/css" rel="stylesheet" href=http://localhost:1313/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
 <meta name="author" content="Aishwarya Raj" />
 
     
         <meta name="keywords" content='ctf, linux, pwn, writeup' />
     
     
-        <meta name="description" content="an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found this:
-There was no explanation regarding the value of file-descriptor. Thus I went on a quest to trace for the value." />
+        <meta name="description" content="gh an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&amp;rsquo;t satify my itch.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./writeup-remote-section.jpeg&#34; alt=&#34;writeup-remote-section&#34;&gt;&lt;/p&gt;
+&lt;p&gt;There was no explanation regarding why the value of file-descriptor was to be &lt;code&gt;5&lt;/code&gt;. Thus I went on a quest to trace for it.&lt;/p&gt;" />
     
 
 <meta property="og:site_name"
@@ -73,20 +74,20 @@ There was no explanation regarding the value of file-descriptor. Thus I went on 
             <meta property="article:tag" content="writeup" />
         
     
-    <meta property="og:url" content="https://ashtrace.github.io/posts/tracing_file_descriptors/" />
+    <meta property="og:url" content="http://localhost:1313/posts/tracing_file_descriptors/" />
     
     
     <meta property="og:image"
-        content="https://ashtrace.github.io/icon512.png" />
+        content="http://localhost:1313/icon512.png" />
     
-        <meta property="og:description" content="I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit " />
+        <meta property="og:description" content="&lt;p&gt;I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my explo" />
     
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta property="twitter:domain"
-      content='ashtrace.github.io'
+      content='localhost:1313'
 />
-<meta property="twitter:url" content="https://ashtrace.github.io/posts/tracing_file_descriptors/" />
+<meta property="twitter:url" content="http://localhost:1313/posts/tracing_file_descriptors/" />
 
 
     <meta name="twitter:title" content="Tracing file descriptors: A battle against poor writeups" />
@@ -94,9 +95,9 @@ There was no explanation regarding the value of file-descriptor. Thus I went on 
     
     
     <meta name="twitter:image"
-        content="https://ashtrace.github.io/icon512.png" />
+        content="http://localhost:1313/icon512.png" />
     
-        <meta name="twitter:description" content="I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit " />
+        <meta name="twitter:description" content="&lt;p&gt;I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my explo" />
     
 
 <link rel="manifest" href="/manifest/index.json" />
@@ -211,9 +212,9 @@ There was no explanation regarding the value of file-descriptor. Thus I went on 
     
     
     
-    <div><p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found this:</p>
+    <div><p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&rsquo;t satify my itch.</p>
 <p><img src="./writeup-remote-section.jpeg" alt="writeup-remote-section"></p>
-<p>There was no explanation regarding the value of file-descriptor. Thus I went on a quest to trace for the value.</p>
+<p>There was no explanation regarding why the value of file-descriptor was to be <code>5</code>. Thus I went on a quest to trace for it.</p>
 <blockquote>
 <p>PS: Please bear with me while we fight togther to tally all those numbers :)  (<em>I tried my best to redact challenge name</em>)</p>
 </blockquote>
@@ -366,7 +367,7 @@ Stripped:   No
 </span></span></code></pre></div><p>The script worked locally, but failed on remote instance.</p>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <p>I made slight change to the Dockerfile to install <code>strace</code> and use it to trace my calls</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Dockerfile" data-lang="Dockerfile"><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span><span style="color:#e6db74"> ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Dockerfile" data-lang="Dockerfile"><span style="display:flex;"><span><span style="color:#66d9ef">FROM</span> <span style="color:#e6db74">ubuntu:20.04</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">ENV</span> DEBIAN_FRONTEND noninteractive<span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> apt-get update --fix-missing <span style="color:#f92672">&amp;&amp;</span> apt-get -y upgrade<span style="color:#960050;background-color:#1e0010">
@@ -378,10 +379,10 @@ Stripped:   No
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">RUN</span> chown -R ctf:ctf /home/ctf/<span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span><span style="color:#e6db74"> /home/ctf</span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span><span style="color:#e6db74"> ctf</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">WORKDIR</span> <span style="color:#e6db74">/home/ctf</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">USER</span> <span style="color:#e6db74">ctf</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
-</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span><span style="color:#e6db74"> 9001/tcp</span><span style="color:#960050;background-color:#1e0010">
+</span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">EXPOSE</span> <span style="color:#e6db74">9001/tcp</span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">
 </span></span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010"></span><span style="color:#66d9ef">ENTRYPOINT</span> [<span style="color:#e6db74">&#34;strace&#34;</span>, <span style="color:#e6db74">&#34;-f&#34;</span>, <span style="color:#e6db74">&#34;socat&#34;</span>, <span style="color:#e6db74">&#34;TCP-LISTEN:9001,fork&#34;</span>, <span style="color:#e6db74">&#34;EXEC:&#39;./challengeBinary&#39;&#34;</span>]<span style="color:#960050;background-color:#1e0010">
 </span></span></span></code></pre></div><p>When I ran my exploit against the docker container, I observed that contrary to my assumption of fd being <code>3</code>, <strong>when flag.txt was opened it was assigned <code>5</code> fd number</strong>.</p>

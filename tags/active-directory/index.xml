@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><?xml-stylesheet href="/feed_style.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="https://www.rssboard.org/media-rss">
   <channel>
     <title>Active Directory on ashtrace | blog</title>
-    <link>https://ashtrace.github.io/tags/active-directory/</link>
+    <link>http://localhost:1313/tags/active-directory/</link>
     <description>Recent content in Active Directory on ashtrace | blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Fri, 23 May 2025 13:06:50 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/active-directory/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Fri, 23 May 2025 13:40:31 +0530</lastBuildDate><atom:link href="http://localhost:1313/tags/active-directory/index.xml" rel="self" type="application/rss+xml" /><icon>http://localhost:1313/logo.svg</icon>
     
     
     <item>
       <title>AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps</title>
-      <link>https://ashtrace.github.io/posts/building_homelab/</link>
-      <pubDate>Fri, 23 May 2025 13:06:50 -0400</pubDate>
+      <link>http://localhost:1313/posts/building_homelab/</link>
+      <pubDate>Fri, 23 May 2025 13:40:31 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/posts/building_homelab/</guid>
-      <description><![CDATA[<p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. <a href="https://github.com/Orange-Cyberdefense/GOAD">GOAD</a> with the ELK/Wazuh extension is (at the time of writing) the best choice (author&rsquo;s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - <em>Fine! I&rsquo;ll do it myself.</em></p>
+      <guid>http://localhost:1313/posts/building_homelab/</guid>
+      <description><![CDATA[<p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (author’s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - Fine! I’ll do it myself.</p>
 <blockquote>
 <p>PS: I’ve tried GOAD (v2) without the ELK/Wazuh stack. It’s a stellar lab that hits a lot of awesome topics. If you haven’t touched it yet, crawl out from under that rock and go check it out.</p>
 </blockquote>
@@ -23,7 +23,7 @@
 <p>The machine I used to built this lab has</p>
 <ul>
 <li>An AMD Ryzen 5500U processor - 6 Physical (12 Logical) cores</li>
-<li>32 gigs of RAM (which might&rsquo;ve been huge for ancient times, but since the dawn of LLMs I feel smol <em>and scared</em>.)</li>
+<li>32 gigs of RAM (which might’ve been huge for ancient times, but since the dawn of LLMs I feel smol and scared.)</li>
 </ul>
 <h2 id="domain-controller">Domain Controller</h2>
 <h3 id="fetch-windows-server-image">Fetch Windows Server Image</h3>

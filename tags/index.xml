@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?><?xml-stylesheet href="/feed_style.xsl" type="text/xsl"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="https://www.rssboard.org/media-rss">
   <channel>
     <title>Tags on ashtrace | blog</title>
-    <link>https://ashtrace.github.io/tags/</link>
+    <link>http://localhost:1313/tags/</link>
     <description>Recent content in Tags on ashtrace | blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Fri, 23 May 2025 13:06:50 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Fri, 23 May 2025 13:40:31 +0530</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" /><icon>http://localhost:1313/logo.svg</icon>
     
     
     <item>
       <title>Active Directory</title>
-      <link>https://ashtrace.github.io/tags/active-directory/</link>
-      <pubDate>Fri, 23 May 2025 13:06:50 -0400</pubDate>
+      <link>http://localhost:1313/tags/active-directory/</link>
+      <pubDate>Fri, 23 May 2025 13:40:31 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/tags/active-directory/</guid>
+      <guid>http://localhost:1313/tags/active-directory/</guid>
       <description><![CDATA[]]></description>
       
     </item>
@@ -23,10 +23,10 @@
     
     <item>
       <title>Ctf</title>
-      <link>https://ashtrace.github.io/tags/ctf/</link>
-      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      <link>http://localhost:1313/tags/ctf/</link>
+      <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/tags/ctf/</guid>
+      <guid>http://localhost:1313/tags/ctf/</guid>
       <description><![CDATA[]]></description>
       
     </item>
@@ -35,10 +35,10 @@
     
     <item>
       <title>Linux</title>
-      <link>https://ashtrace.github.io/tags/linux/</link>
-      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      <link>http://localhost:1313/tags/linux/</link>
+      <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/tags/linux/</guid>
+      <guid>http://localhost:1313/tags/linux/</guid>
       <description><![CDATA[]]></description>
       
     </item>
@@ -47,10 +47,10 @@
     
     <item>
       <title>Pwn</title>
-      <link>https://ashtrace.github.io/tags/pwn/</link>
-      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      <link>http://localhost:1313/tags/pwn/</link>
+      <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/tags/pwn/</guid>
+      <guid>http://localhost:1313/tags/pwn/</guid>
       <description><![CDATA[]]></description>
       
     </item>
@@ -59,10 +59,10 @@
     
     <item>
       <title>Writeup</title>
-      <link>https://ashtrace.github.io/tags/writeup/</link>
-      <pubDate>Tue, 14 Jan 2025 08:57:53 +0530</pubDate>
+      <link>http://localhost:1313/tags/writeup/</link>
+      <pubDate>Tue, 14 Jan 2025 12:48:53 +0530</pubDate>
       
-      <guid>https://ashtrace.github.io/tags/writeup/</guid>
+      <guid>http://localhost:1313/tags/writeup/</guid>
       <description><![CDATA[]]></description>
       
     </item>
