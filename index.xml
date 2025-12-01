@@ -6,7 +6,1016 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Fri, 23 May 2025 13:40:31 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Sun, 30 Nov 2025 11:19:42 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>Black Hat V: Introduction to something that I might or might not do</title>
+      <link>https://ashtrace.github.io/posts/black_hat_v_intro/</link>
+      <pubDate>Sun, 30 Nov 2025 11:19:42 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/posts/black_hat_v_intro/</guid>
+      <description><![CDATA[<p>After brothing my first set of cybersecurity alphabet soup of certifications (yup, now I&rsquo;ve hunt down OSCP for my HR peeps) I felt need to re-strategise my academic approach. Following is the first of many advents I have planned for myself. Throughout this and following posts (marked as Black Hat V), I&rsquo;d try to reconstruct the exercises of <a href="https://nostarch.com/blackhatgo">Black Hat Go (by Tom Steele, Chris Patten, and Dan Kottmann)</a> to encourage myself to learn <a href="https://vlang.io/">vlang</a>.</p>
+<h2 id="setting-up-a-development-environment">Setting Up a Development Environment</h2>
+<h3 id="downloading-and-installing-v">Downloading and Installing V</h3>
+<p>Visit <a href="https://vlang.io/">vlang.io</a> and download for your OS. (I&rsquo;d be using linux througout this series, if Microsoft Windows is need I&rsquo;d leverage a VM).</p>
+<p><img src="./download-vlang.png" alt="download-vlang"></p>
+<p>Extract the zip archive downloaded. This would create a <code>v</code> directory with following contents. <code>./v</code> can be used to launch a REPL shell or compile/run <code>.v</code> source file.</p>
+<p><img src="./v-files.png" alt="v-files"></p>
+<blockquote>
+<p>It is highly recommended, that you put V on your PATH. That saves you the effort to type in the full path to your v executable every time. V provides a convenience <code>v symlink</code> command to do that more easily.</p>
+</blockquote>
+<p>On Unix systems, it creates a <code>/usr/local/bin/v</code> symlink to your executable. To do that, run:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>sudo ./v symlink
+</span></span></code></pre></div><h3 id="choosing-an-ide">Choosing an IDE</h3>
+<p>I configured <a href="https://code.visualstudio.com/">Microsoft Visual Studio Code</a> with extension for Vlang.</p>
+<p><img src="./vscode-v.png" alt="vscode-v"></p>
+<h2 id="breaking-ice-with-v-tool-commands">Breaking Ice with V tool commands</h2>
+<h3 id="the-v-run-command">The <code>v run</code> command</h3>
+<p>Create a source file with .v extension (let&rsquo;s say hello.v), with following code.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">hello</span> <span style="color:#a6e22e">world</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>From the command line, execute <code>v run hello.v</code>, you&rsquo;d see the message printed back on screen.</p>
+<p><img src="./v-hello-world.png" alt="v-hello-world"></p>
+<p>Similar to golang, <code>v run</code> does not produce a compiled executable. To create a binary file just remove the <code>run</code> from the command.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>v hello.v
+</span></span></code></pre></div><p>This should create an executable (ELF on linux, EXE on windows) with same name as the source code file.</p>
+<p><img src="./v-compile-binary.png" alt="v-compile-binary"></p>
+<p>To enable production mode optimizations while building, use <code>-prod</code> flag. This also helps to reduce the executable file size.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>v hello.v -prod
+</span></span></code></pre></div><p><img src="./v-prod-build.png" alt="v-prod-build"></p>
+<h3 id="cross-compilation">Cross-Compilation</h3>
+<p>To cross-compile the file, just pass the target OS using <code>-os</code> flag.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>v hello.v -os windows
+</span></span></code></pre></div><p><img src="./v-cross-compilation.png" alt="v-cross-compilation"></p>
+<h3 id="the-v-install-command">The <code>v install</code> command</h3>
+<p>To fetch third-party packages, use the <code>v install</code> command.</p>
+<p><img src="./v-install.png" alt="v-install"></p>
+<h3 id="the-v-fmt-command">The <code>v fmt</code> command</h3>
+<p>You don&rsquo;t need to worry about formatting your code or setting style guidelines. v fmt takes care of that:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>v fmt file.v
+</span></span></code></pre></div><h3 id="v-playground">V Playground</h3>
+<p>It is an execution environment that provides a web-based interface to play with the language. Try it <a href="https://play.vlang.io/">here</a>.</p>
+<h2 id="the-v-syntax">The V Syntax</h2>
+<p>For a thorough study of the language you can refer to <a href="https://docs.vlang.io/introduction.html">V Documentation</a>. Following is a brief overview of the syntax.</p>
+<h3 id="data-types">Data Types</h3>
+<h4 id="primitive-data-types">Primitive Data Types</h4>
+<p>The primitive data types include</p>
+<ul>
+<li>bool</li>
+<li>string</li>
+<li>i8, i16, int, i64</li>
+<li>u8, u16, u32, u64</li>
+<li>rune (represents a single UTF-32 encoded Unicode character and is an alias for <code>u32</code>. To denote them, use <strong>`</strong> (backticks) )</li>
+<li>f32, f64</li>
+<li>isize, usize (platform dependent, the size of bytes it takes to reference any location in memory)</li>
+<li>voidptr (for interoperability with C)</li>
+</ul>
+<blockquote>
+<p>Unlike C and Go, <code>int</code> is always a <strong>32 bit integer</strong>.</p>
+</blockquote>
+<p>There is an exception to the rule that all operators in V must have values of the same type on both sides. A small primitive type on one side can be automatically promoted if it fits completely into the data range of the type on the other side. These are the allowed possibilities:</p>
+<pre tabindex="0"><code>   i8 → i16 → int → i64
+                  ↘     ↘
+                    f32 → f64
+                  ↗     ↗
+   u8 → u16 → u32 → u64 ⬎
+      ↘     ↘     ↘      ptr
+   i8 → i16 → int → i64 ⬏
+</code></pre><p>An int value for example can be automatically promoted to f64 or i64 but not to u32. (u32 would mean loss of the sign for negative values). Promotion from int to f32, however, is currently done automatically (but can lead to precision loss for large values).</p>
+<p>Literals like 123 or 4.56 are treated in a special way. They do not lead to type promotions, however they default to int and f64 respectively, when their type has to be decided.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">u</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">u16</span>(<span style="color:#ae81ff">12</span>)
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">v</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">13</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">u</span>    <span style="color:#75715e">// v is of type `u16` - no promotion</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">x</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">f32</span>(<span style="color:#ae81ff">45.6</span>)
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">y</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">x</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">3.14</span>  <span style="color:#75715e">// y is of type `f32` - no promotion</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">75</span>        <span style="color:#75715e">// a is of type `int` - default for int literal</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">b</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">14.7</span>      <span style="color:#75715e">// b is of type `f64` - default for float literal</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">u</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">a</span>     <span style="color:#75715e">// c is of type `int` - automatic promotion of `u`&#39;s value</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">d</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">b</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">x</span>     <span style="color:#75715e">// d is of type `f64` - automatic promotion of `x`&#39;s value</span>
+</span></span></code></pre></div><h4 id="strings">Strings</h4>
+<p>In V, strings are encoded in UTF-8, and are immutable (read-only) by default.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">hello</span> <span style="color:#960050;background-color:#1e0010">🌎&#39;</span> <span style="color:#75715e">// the `world` emoji takes 4 bytes, and string length is reported in bytes</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">len</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">arr</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">bytes</span>() <span style="color:#75715e">// convert `string` to `[]u8`</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">arr</span>.<span style="color:#a6e22e">len</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">s2</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">arr</span>.<span style="color:#a6e22e">bytestr</span>() <span style="color:#75715e">// convert `[]u8` to `string`</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">s2</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">s</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">name</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Bob</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">name</span>.<span style="color:#a6e22e">len</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">3</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// indexing gives a byte, u8(66) == `B`</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">name</span>[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">==</span> <span style="color:#a6e22e">u8</span>(<span style="color:#ae81ff">66</span>)
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// slicing gives a string &#39;ob&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">name</span>[<span style="color:#ae81ff">1..3</span>] <span style="color:#f92672">==</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">ob</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// escape codes</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// escape special characters like in C</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">windows_newline</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;\</span><span style="color:#a6e22e">r</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">n</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">windows_newline</span>.<span style="color:#a6e22e">len</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// arbitrary bytes can be directly specified using `\x##` notation where `#` is</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// a hex digit</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">aardvark_str</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;\</span><span style="color:#a6e22e">x61ardvark</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">aardvark_str</span> <span style="color:#f92672">==</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">aardvark</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#e6db74">&#39;\xc0&#39;</span>[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">==</span> <span style="color:#a6e22e">u8</span>(<span style="color:#ae81ff">0xc0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// or using octal escape `\###` notation where `#` is an octal digit</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">aardvark_str2</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;\</span><span style="color:#ae81ff">141</span><span style="color:#a6e22e">ardvark</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">aardvark_str2</span> <span style="color:#f92672">==</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">aardvark</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Unicode can be specified directly as `\u####` where # is a hex digit</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// and will be converted internally to its UTF-8 representation</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">star_str</span> <span style="color:#f92672">:=</span> <span style="color:#e6db74">&#39;\u2605&#39;</span> <span style="color:#75715e">// ★</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">star_str</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;★&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// UTF-8 can be specified this way too, as individual bytes.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">star_str</span> <span style="color:#f92672">==</span> <span style="color:#960050;background-color:#1e0010">&#39;\</span><span style="color:#a6e22e">xe2</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">x98</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">x85</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span></code></pre></div><p>Note that indexing a string normally will produce a <code>u8</code> (byte), not a <code>rune</code> nor another <code>string</code>. Indexes correspond to <em>bytes</em> in the string, not Unicode code points. If you want to convert the <code>u8</code> to a <code>string</code>, use the <code>.ascii_str()</code> method on the <code>u8</code>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">country</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Netherlands</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">country</span>[<span style="color:#ae81ff">0</span>]) <span style="color:#75715e">// Output: 78</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">country</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">ascii_str</span>()) <span style="color:#75715e">// Output: N</span>
+</span></span></code></pre></div><p>However, you can easily get the runes for a string with the <code>runes()</code> method, which will return an array of the UTF-8 characters from the string. You can then index this array. Just be aware that there may be fewer indexes available on the rune array than on the bytes in the string, if there are any non-ASCII characters.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">hello</span> <span style="color:#960050;background-color:#1e0010">🌎&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// there are 10 bytes in the string (as shown earlier), but only 7 runes, since the `world` emoji</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// only counts as one `rune` (one Unicode character)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">runes</span>().<span style="color:#a6e22e">len</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">7</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">runes</span>()[<span style="color:#ae81ff">6</span>])
+</span></span></code></pre></div><p>Prepend <code>r</code> for raw strings. Escapes are not handled, so you will get exacly what you type:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">r</span><span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">hello</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">nworld</span><span style="color:#960050;background-color:#1e0010">&#39;</span> <span style="color:#75715e">// the `\n` will be preserved as two characters</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">s</span>) <span style="color:#75715e">// &#34;hello\nworld&#34;</span>
+</span></span></code></pre></div><p>Strings can be easily converted to integers:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#ae81ff">42</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">n</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">s</span>.int() <span style="color:#75715e">// 42</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// all int literals are supported</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#ae81ff">0xc3</span><span style="color:#960050;background-color:#1e0010">&#39;</span>.int() <span style="color:#f92672">==</span> <span style="color:#ae81ff">195</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#ae81ff">0</span><span style="color:#a6e22e">o10</span><span style="color:#960050;background-color:#1e0010">&#39;</span>.int() <span style="color:#f92672">==</span> <span style="color:#ae81ff">8</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#ae81ff">0b1111_0000_1010</span><span style="color:#960050;background-color:#1e0010">&#39;</span>.int() <span style="color:#f92672">==</span> <span style="color:#ae81ff">3850</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#f92672">-</span><span style="color:#ae81ff">0b1111_0000_1010</span><span style="color:#960050;background-color:#1e0010">&#39;</span>.int() <span style="color:#f92672">==</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">3850</span>
+</span></span></code></pre></div><h4 id="string-interpolation">String interpolation</h4>
+<p>Basic interpolation syntax is pretty simple - use <code>${</code> before a variable name and <code>}</code> after. The variable will be converted to a string and embedded into the literal:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">name</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Bob</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Hello</span>, <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">name</span>}!<span style="color:#960050;background-color:#1e0010">&#39;</span>) <span style="color:#75715e">// Hello, Bob!</span>
+</span></span></code></pre></div><h4 id="arrays">Arrays</h4>
+<p>V arrays are homogeneous (all elements must have the same type). This means that code like <code>[1, 'a']</code> will not compile. The type of an array is determined by the first element:</p>
+<ul>
+<li><code>[1, 2, 3]</code> is an array of ints (<code>[]int</code>).</li>
+<li><code>['a', 'b']</code> is an array of strings (<code>[]string</code>).</li>
+</ul>
+<p>The user can explicitly specify the type for the first element: <code>[u8(16), 32, 64, 128]</code>.</p>
+<p>An element can be appended to the end of an array using the push operator &laquo;. It can also append an entire array.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">nums</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">10</span>, <span style="color:#ae81ff">20</span>, <span style="color:#ae81ff">30</span>]
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">nums</span>) <span style="color:#75715e">// `[10, 20, 30]`</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">nums</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>]
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">nums</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">nums</span>) <span style="color:#75715e">// &#34;[1, 2, 3, 4]&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// append array</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">nums</span> <span style="color:#f92672">&lt;&lt;</span> [<span style="color:#ae81ff">5</span>, <span style="color:#ae81ff">6</span>, <span style="color:#ae81ff">7</span>]
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">nums</span>) <span style="color:#75715e">// &#34;[1, 2, 3, 4, 5, 6, 7]&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Declare an empty array:</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">users</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{}
+</span></span></code></pre></div><p>The above syntax is fine for a small number of known elements but for very large or empty arrays there is a second initialization syntax:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">10000</span>, <span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">30000</span>, <span style="color:#a6e22e">init</span>: <span style="color:#ae81ff">3</span>}
+</span></span></code></pre></div><p>This creates an array of 10000 <code>int</code> elements that are all initialized with 3. Memory space is reserved for 30000 elements. The parameters <code>len</code>, <code>cap</code> and <code>init</code> are optional; <code>len</code> defaults to 0 and <code>init</code> to the default initialization of the element type (<code>0</code> for numerical type, <code>''</code> for <code>string</code>, etc). The run time system makes sure that the capacity is not smaller than <code>len</code> (even if a smaller value is specified explicitly).</p>
+<p>There are two fields that control the &ldquo;size&rdquo; of an array:</p>
+<ul>
+<li><code>len</code>: <strong>length</strong> - the number of pre-allocated and initialized elements in the array</li>
+<li><code>cap</code>: <strong>capacity</strong> - the amount of memory space which has been reserved for elements, but not initialized or counted as elements. The array can grow up to this size without being reallocated. Usually, V takes care of this field automatically but there are cases where the user may want to do manual optimizations.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">nums</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>]
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">nums</span>.<span style="color:#a6e22e">len</span>) <span style="color:#75715e">// &#34;3&#34;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">nums</span>.<span style="color:#a6e22e">cap</span>) <span style="color:#75715e">// &#34;3&#34; or greater</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">arr</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">5</span>, <span style="color:#a6e22e">init</span>: <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// `arr == [-1, -1, -1, -1, -1]`, arr.cap == 5</span>
+</span></span></code></pre></div><p>You can initialize the array by accessing the index variable which gives the index as shown here:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">count</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">4</span>, <span style="color:#a6e22e">init</span>: <span style="color:#a6e22e">index</span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">count</span> <span style="color:#f92672">==</span> [<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">square</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">6</span>, <span style="color:#a6e22e">init</span>: <span style="color:#a6e22e">index</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">index</span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// square == [0, 1, 4, 9, 16, 25]</span>
+</span></span></code></pre></div><p>You can learn more about different array types <a href="https://docs.vlang.io/v-types.html#array-types">here</a>.</p>
+<h4 id="multi-dimensional-arrays">Multi-dimensional arrays</h4>
+<p>Arrays can have more than one dimension.</p>
+<p>2d array example:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> [][]<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">2</span>, <span style="color:#a6e22e">init</span>: []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">3</span>}}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">a</span>[<span style="color:#ae81ff">0</span>][<span style="color:#ae81ff">1</span>] = <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">a</span>) <span style="color:#75715e">// [[0, 2, 0], [0, 0, 0]]</span>
+</span></span></code></pre></div><p>3d array example:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> [][][]<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">2</span>, <span style="color:#a6e22e">init</span>: [][]<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">3</span>, <span style="color:#a6e22e">init</span>: []<span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">2</span>}}}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">a</span>[<span style="color:#ae81ff">0</span>][<span style="color:#ae81ff">1</span>][<span style="color:#ae81ff">1</span>] = <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">a</span>) <span style="color:#75715e">// [[[0, 0], [0, 2], [0, 0]], [[0, 0], [0, 0], [0, 0]]]</span>
+</span></span></code></pre></div><h4 id="fixed-size-arays">Fixed size arays</h4>
+<p>V also supports arrays with fixed size. Unlike ordinary arrays, their length is constant. You cannot append elements to them, nor shrink them. You can only modify their elements in place.</p>
+<p>However, access to the elements of fixed size arrays is more efficient, they need less memory than ordinary arrays, and unlike ordinary arrays, their data is on the stack, so you may want to use them as buffers if you do not want additional heap allocations.</p>
+<p>Most methods are defined to work on ordinary arrays, not on fixed size arrays. You can convert a fixed size array to an ordinary array with slicing:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">fnums</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">3</span>]<span style="color:#66d9ef">int</span>{} <span style="color:#75715e">// fnums is a fixed size array with 3 elements.</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fnums</span>[<span style="color:#ae81ff">0</span>] = <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fnums</span>[<span style="color:#ae81ff">1</span>] = <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fnums</span>[<span style="color:#ae81ff">2</span>] = <span style="color:#ae81ff">100</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">fnums</span>) <span style="color:#75715e">// =&gt; [1, 10, 100]</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">typeof</span>(<span style="color:#a6e22e">fnums</span>).<span style="color:#a6e22e">name</span>) <span style="color:#75715e">// =&gt; [3]int</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fnums2</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">10</span>, <span style="color:#ae81ff">100</span>]! <span style="color:#75715e">// short init syntax that does the same (the syntax will probably change)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">anums</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">fnums</span>[..] <span style="color:#75715e">// same as `anums := fnums[0..fnums.len]`</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">anums</span>) <span style="color:#75715e">// =&gt; [1, 10, 100]</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">typeof</span>(<span style="color:#a6e22e">anums</span>).<span style="color:#a6e22e">name</span>) <span style="color:#75715e">// =&gt; []int</span>
+</span></span></code></pre></div><h4 id="maps">Maps</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">m</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">map</span>[<span style="color:#66d9ef">string</span>]<span style="color:#66d9ef">int</span>{} <span style="color:#75715e">// a map with `string` keys and `int` values</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">m</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">one</span><span style="color:#960050;background-color:#1e0010">&#39;</span>] = <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">m</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">two</span><span style="color:#960050;background-color:#1e0010">&#39;</span>] = <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">m</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">one</span><span style="color:#960050;background-color:#1e0010">&#39;</span>]) <span style="color:#75715e">// &#34;1&#34;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">m</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">bad_key</span><span style="color:#960050;background-color:#1e0010">&#39;</span>]) <span style="color:#75715e">// &#34;0&#34;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">bad_key</span><span style="color:#960050;background-color:#1e0010">&#39;</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">m</span>) <span style="color:#75715e">// Use `in` to detect whether such key exists</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">m</span>.<span style="color:#a6e22e">keys</span>()) <span style="color:#75715e">// [&#39;one&#39;, &#39;two&#39;]</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">m</span>.delete(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">two</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span></code></pre></div><p>Maps can have keys of type string, rune, integer, float or voidptr.</p>
+<p>The whole map can be initialized using this short syntax:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">numbers</span> <span style="color:#f92672">:=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">one</span><span style="color:#960050;background-color:#1e0010">&#39;</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">two</span><span style="color:#960050;background-color:#1e0010">&#39;</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">numbers</span>)
+</span></span></code></pre></div><p>If a key is not found, a zero value is returned by default:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">sm</span> <span style="color:#f92672">:=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">abc</span><span style="color:#960050;background-color:#1e0010">&#39;</span>: <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">xyz</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">val</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">sm</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">bad_key</span><span style="color:#960050;background-color:#1e0010">&#39;</span>]
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">val</span>) <span style="color:#75715e">// &#39;&#39;</span>
+</span></span></code></pre></div><p>It&rsquo;s also possible to use an <code>or {}</code> block to handle missing keys:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mm</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">map</span>[<span style="color:#66d9ef">string</span>]<span style="color:#66d9ef">int</span>{}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">val</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">mm</span>[<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">bad_key</span><span style="color:#960050;background-color:#1e0010">&#39;</span>] <span style="color:#a6e22e">or</span> { panic(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">key</span> <span style="color:#a6e22e">not</span> <span style="color:#a6e22e">found</span><span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span></code></pre></div><h4 id="map-update-syntax">Map update syntax</h4>
+<p>V lets you initialise a map with an update applied on top of another map:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">base_map</span> = {
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;a&#39;</span>: <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;b&#39;</span>: <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">foo</span> <span style="color:#f92672">:=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">...</span><span style="color:#a6e22e">base_map</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;b&#39;</span>: <span style="color:#ae81ff">88</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;c&#39;</span>: <span style="color:#ae81ff">99</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">foo</span>) <span style="color:#75715e">// {&#39;a&#39;: 4, &#39;b&#39;: 88, &#39;c&#39;: 99}</span>
+</span></span></code></pre></div><h4 id="structs">Structs</h4>
+<p>Structs can help design user-defined complex data types.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Point</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">x</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">y</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">p</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Point</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">x</span>: <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">y</span>: <span style="color:#ae81ff">20</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">p</span>.<span style="color:#a6e22e">x</span>) <span style="color:#75715e">// Struct fields are accessed using a dot</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Alternative literal syntax</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">p</span> = <span style="color:#a6e22e">Point</span>{<span style="color:#ae81ff">10</span>, <span style="color:#ae81ff">20</span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">p</span>.<span style="color:#a6e22e">x</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">10</span>
+</span></span></code></pre></div><blockquote>
+<p>Structs are allocated on the stack. To allocate a struct on the heap and get a <a href="https://docs.vlang.io/references.html">reference</a> to it, use the <code>&amp;</code> prefix:</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Point</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">x</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">y</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">p</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">Point</span>{<span style="color:#ae81ff">10</span>, <span style="color:#ae81ff">10</span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// References have the same syntax for accessing fields</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">p</span>.<span style="color:#a6e22e">x</span>)
+</span></span></code></pre></div><p>The type of p is &amp;Point. It&rsquo;s a <em>reference</em> to Point. References are similar to Go pointers and C++ references.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Foo</span> {
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">x</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fa</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Foo</span>{<span style="color:#ae81ff">1</span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">fa</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">a</span>.<span style="color:#a6e22e">x</span> = <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">fa</span>.<span style="color:#a6e22e">x</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">a</span>.<span style="color:#a6e22e">x</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// fb := Foo{ 1 }</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// mut b := &amp;fb  // error: `fb` is immutable, cannot have a mutable reference to it</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// b.x = 2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">fc</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Foo</span>{<span style="color:#ae81ff">1</span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">fc</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">c</span>.<span style="color:#a6e22e">x</span> = <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">fc</span>.<span style="color:#a6e22e">x</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">assert</span> <span style="color:#a6e22e">c</span>.<span style="color:#a6e22e">x</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">fc</span>) <span style="color:#75715e">// Foo{ x: 2 }</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">c</span>) <span style="color:#75715e">// &amp;Foo{ x: 2 } // Note `&amp;` prefixed.</span>
+</span></span></code></pre></div><p><strong>Default field</strong> values can be assigned during Struct definition.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Foo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">n</span>   <span style="color:#66d9ef">int</span>    <span style="color:#75715e">// n is 0 by default</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">s</span>   <span style="color:#66d9ef">string</span> <span style="color:#75715e">// s is &#39;&#39; by default</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">a</span>   []<span style="color:#66d9ef">int</span>  <span style="color:#75715e">// a is `[]int{}` by default</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pos</span> <span style="color:#66d9ef">int</span> = <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> <span style="color:#75715e">// custom default value</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>All struct fields are zeroed by default during the creation of the struct. Array and map fields are allocated. In case of reference value, see <a href="https://docs.vlang.io/structs-with-reference-fields.html">here</a>.</p>
+<p>You can mark a struct field with the <code>[required]</code> attribute, to tell V that that field must be initialized when creating an instance of that struct.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Foo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">n</span> <span style="color:#66d9ef">int</span> <span style="color:#960050;background-color:#1e0010">@</span>[<span style="color:#a6e22e">required</span>]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="struct-access-modifiers">Struct Access modifiers</h4>
+<p>Struct fields are <strong>private and immutable by default</strong> (making structs immutable as well). Their access modifiers can be changed with pub and mut. In total, there are 5 possible options:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Foo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">a</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// private immutable (default)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">b</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// private mutable</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">c</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// (you can list multiple fields with the same access modifier)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">pub</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">d</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// public immutable (readonly)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">pub</span> <span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">e</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// public, but mutable only in parent module</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">__global</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// (not recommended to use, that&#39;s why the &#39;global&#39; keyword starts with __)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">f</span> <span style="color:#66d9ef">int</span> <span style="color:#75715e">// public and mutable both inside and outside parent module</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="methods-for-structs">Methods for structs</h4>
+<p>V doesn&rsquo;t have classes, but you can define methods on types. A method is a function with a special <strong><code>receiver</code></strong> argument. The <strong>receiver</strong> appears in its own argument list <strong>between the <code>fn</code> keyword and the method name</strong>. Methods must be in the same module as the receiver type.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">age</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">u</span> <span style="color:#a6e22e">User</span>) <span style="color:#a6e22e">can_register</span>() <span style="color:#66d9ef">bool</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">u</span>.<span style="color:#a6e22e">age</span> &gt; <span style="color:#ae81ff">16</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">User</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">age</span>: <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">can_register</span>()) <span style="color:#75715e">// &#34;false&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">user2</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">User</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">age</span>: <span style="color:#ae81ff">20</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">user2</span>.<span style="color:#a6e22e">can_register</span>()) <span style="color:#75715e">// &#34;true&#34;</span>
+</span></span></code></pre></div><p>In this example, the <code>can_register</code> method has a receiver of type <code>User</code> named <code>u</code>. The convention is not to use receiver names like <code>self</code> or <code>this</code>, but a short, preferably one letter long, name.</p>
+<h4 id="static-type-methods-for-structs">Static type methods for structs</h4>
+<p>V supports static type methods like <code>User.new()</code>. These are defined on a struct via <code>fn [Type name].[function name]</code> and allow to organize all functions related to a struct:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">User</span>.new() <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">User</span>{}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">User</span>.new()
+</span></span></code></pre></div><h4 id="interfaces">Interfaces</h4>
+<p>An interface can be considered as a blueprint that defines an expected set of actions that any concrete implementation must fulfill in order to be considered a type of that interface. Unlike Go, but like TypeScript, V&rsquo;s interfaces can define both fields and methods.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Speaker</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">breed</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">speak</span>() <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>A type implements an interface by implementing its methods and fields. In the following code, both <code>Dog</code> and <code>Cat</code> struct have a <code>breed</code> attribute and a <code>speak()</code> method which allows them to adhere to requirements to be considered as a <code>Speaker</code> type.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Dog</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">breed</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">d</span> <span style="color:#a6e22e">Dog</span>) <span style="color:#a6e22e">speak</span>() <span style="color:#66d9ef">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">woof</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Cat</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">breed</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">c</span> <span style="color:#a6e22e">Cat</span>) <span style="color:#a6e22e">speak</span>() <span style="color:#66d9ef">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">meow</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dog</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Dog</span>{<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Leonberger</span><span style="color:#960050;background-color:#1e0010">&#39;</span>}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cat</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Cat</span>{<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Siamese</span><span style="color:#960050;background-color:#1e0010">&#39;</span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">arr</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">Speaker</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">arr</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">dog</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">arr</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">cat</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">item</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">arr</span> {
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">a</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">breed</span>} <span style="color:#a6e22e">says</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">speak</span>()}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>To learn more about interfaces, you can reference <a href="https://docs.vlang.io/type-declarations.html#interfaces">this documentation</a>.</p>
+<h3 id="control-structures">Control Structures</h3>
+<h4 id="if">If</h4>
+<p><code>if</code> statements are pretty straightforward and similar to most other languages. Unlike other C-like languages, there are no parentheses surrounding the condition and the braces are always required.</p>
+<pre tabindex="0"><code>a := 10
+b := 20
+if a &lt; b {
+    println(&#39;${a} &lt; ${b}&#39;)
+} else if a &gt; b {
+    println(&#39;${a} &gt; ${b}&#39;)
+} else {
+    println(&#39;${a} == ${b}&#39;)
+}
+</code></pre><h4 id="if-expressions"><code>If</code> expressions</h4>
+<p>Unlike C, V does not have a ternary operator, that would allow you to do: <code>x = c ? 1 : 2</code> . Instead, it has a bit more verbose, but also clearer to read, ability to use if as an expression. The direct translation in V of the ternary construct above, assuming c is a boolean condition, would be: <code>x = if c { 1 } else { 2 }</code>.</p>
+<p>You can use multiple statements in each of the branches of an if expression, followed by a final value, that will become the value of the entire if expression, when it takes that branch:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">n</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">arguments</span>().<span style="color:#a6e22e">len</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">x</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">n</span> &gt; <span style="color:#ae81ff">2</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dump</span>(<span style="color:#a6e22e">arguments</span>())
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">42</span>
+</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">something</span> <span style="color:#66d9ef">else</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">100</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">dump</span>(<span style="color:#a6e22e">x</span>)
+</span></span></code></pre></div><h4 id="match">Match</h4>
+<p>A match statement is a shorter way to write a sequence of <code>if - else</code> statements. When a matching branch is found, the following statement block will be run. The else branch will be run when no other branches match.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">os</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">windows</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">V</span> <span style="color:#a6e22e">is</span> <span style="color:#a6e22e">running</span> <span style="color:#a6e22e">on</span> <span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">match</span> <span style="color:#a6e22e">os</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">darwin</span><span style="color:#960050;background-color:#1e0010">&#39;</span> { println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">macOS</span>.<span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">linux</span><span style="color:#960050;background-color:#1e0010">&#39;</span> { println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Linux</span>.<span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> { println(<span style="color:#a6e22e">os</span>) }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">number</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">match</span> <span style="color:#a6e22e">number</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">1</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">one</span><span style="color:#960050;background-color:#1e0010">&#39;</span> }
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">2</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">two</span><span style="color:#960050;background-color:#1e0010">&#39;</span> }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">many</span><span style="color:#960050;background-color:#1e0010">&#39;</span> }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="in-operator"><code>in</code> operator</h4>
+<p><code>in</code> allows to check whether an array or a map contains an element. To do the opposite, use <code>!in</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">nums</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>]
+</span></span><span style="display:flex;"><span>println(<span style="color:#ae81ff">1</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">nums</span>) <span style="color:#75715e">// true</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#ae81ff">4</span> !<span style="color:#a6e22e">in</span> <span style="color:#a6e22e">nums</span>) <span style="color:#75715e">// true</span>
+</span></span></code></pre></div><h4 id="for-loops"><code>for</code> loops</h4>
+<p>V has only one looping keyword: <code>for</code>, with several forms.</p>
+<p><code>for</code>/<code>in</code> is the most common form. You can use it with an array, map or numeric range. The <code>for value in arr</code> form is used for going through elements of an array. If an index is required, an alternative form <code>for index, value in arr</code> can be used.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">numbers</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>, <span style="color:#ae81ff">4</span>, <span style="color:#ae81ff">5</span>]
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">num</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">numbers</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">num</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">names</span> <span style="color:#f92672">:=</span> [<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Sam</span><span style="color:#960050;background-color:#1e0010">&#39;</span>, <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Peter</span><span style="color:#960050;background-color:#1e0010">&#39;</span>]
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span>, <span style="color:#a6e22e">name</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">names</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">i</span>}) <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">name</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Output: 0) Sam</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">//         1) Peter</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Note that the value is read-only. If you need to modify the array while looping, you need to declare the element as mutable:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">numbers</span> <span style="color:#f92672">:=</span> [<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>]
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">num</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">numbers</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">num</span><span style="color:#f92672">++</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">numbers</span>) <span style="color:#75715e">// [1, 2, 3]</span>
+</span></span></code></pre></div><p><strong>By default, array elements are taken by value, if you need elements to be taken by reference, use <code>&amp;</code> on the array you want to iterate over:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">users</span> <span style="color:#f92672">:=</span> [<span style="color:#a6e22e">User</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span>: <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">someuserwow99</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}, <span style="color:#a6e22e">User</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span>: <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">visgod</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}]
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// note `&amp;users`, this is how a reference to the elements of the array is received</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">user</span> <span style="color:#a6e22e">in</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">users</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// some operations with `user`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The same applies to maps.</p>
+<p>When an identifier is just a single underscore, it is ignored.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">m</span> <span style="color:#f92672">:=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">one</span><span style="color:#960050;background-color:#1e0010">&#39;</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">two</span><span style="color:#960050;background-color:#1e0010">&#39;</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">value</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">m</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">key</span>} <span style="color:#f92672">-</span>&gt; <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">value</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Output: one -&gt; 1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">//         two -&gt; 2</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// iterate over keys</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">_</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">m</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">key</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Output: one</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">//         two</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// iterate over values</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">_</span>, <span style="color:#a6e22e">value</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">m</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">value</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Output: 1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">//         2</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>While executing a ranged <code>for</code>, <code>low..high</code> means an exclusive range, which represents all values from <code>low</code> up to but not including <code>high</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">// Prints &#39;01234&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0</span> .. <span style="color:#ae81ff">5</span> {
+</span></span><span style="display:flex;"><span>    print(<span style="color:#a6e22e">i</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>A conditional <code>for</code> is of the forms</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">sum</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">100</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+=</span> <span style="color:#a6e22e">i</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">i</span><span style="color:#f92672">++</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">sum</span>) <span style="color:#75715e">// &#34;5050&#34;</span>
+</span></span></code></pre></div><p>This form of the loop is similar to while loops in other languages. The loop will stop iterating once the boolean condition evaluates to false. Again, there are no parentheses surrounding the condition, and the braces are always required.</p>
+<p>Finally, there&rsquo;s the traditional C style <code>for</code> loop. It&rsquo;s safer than the while form because with the latter it&rsquo;s easy to forget to update the counter and get stuck in an infinite loop.</p>
+<p>Here <code>i</code> doesn&rsquo;t need to be declared with <code>mut</code> since it&rsquo;s always going to be mutable by definition.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span> &lt; <span style="color:#ae81ff">10</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">+=</span> <span style="color:#ae81ff">2</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Don&#39;t print 6</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">6</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">continue</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">i</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>V also supports <a href="https://docs.vlang.io/statements-&amp;-expressions.html#custom-iterators">custom iterators</a>.</p>
+<h4 id="defer">Defer</h4>
+<p>A <code>defer {}</code> statement, defers the execution of the block of statements until the surrounding scope of the defer ends. It is a convenient feature that allows you to group related actions (getting access to a resource and cleaning/freeing it after you are done) closely together, instead of spreading them across multiple potentially very remote lines of code.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">os</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">read_log</span>() ! {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">ok</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">f</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">open</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">txt</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)!
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">defer</span> { <span style="color:#a6e22e">f</span>.close() }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> !<span style="color:#a6e22e">ok</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// defer statement will be called here, the file will be closed</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// defer statement will be called here too, the file will be closed</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><blockquote>
+<p>If the function returns a value the defer block is executed after the return expression is evaluated.</p>
+</blockquote>
+<h3 id="concurrency">Concurrency</h3>
+<p>V&rsquo;s model of concurrency is similar to Go&rsquo;s.</p>
+<p><code>go foo()</code> runs <code>foo()</code> concurrently in a lightweight thread managed by the V runtime.</p>
+<p><code>spawn foo()</code> runs <code>foo()</code> concurrently in a different thread:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">math</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">p</span>(<span style="color:#a6e22e">a</span> <span style="color:#a6e22e">f64</span>, <span style="color:#a6e22e">b</span> <span style="color:#a6e22e">f64</span>) { <span style="color:#75715e">// ordinary function without return value</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">math</span>.<span style="color:#a6e22e">sqrt</span>(<span style="color:#a6e22e">a</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">b</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">b</span>)
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">c</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">p</span>(<span style="color:#ae81ff">3</span>, <span style="color:#ae81ff">4</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// p will be run in parallel thread</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// It can also be written as follows</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// spawn fn (a f64, b f64) {</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 	c := math.sqrt(a * a + b * b)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 	println(c)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// }(3, 4)</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><blockquote>
+<p>Threads rely on the machine&rsquo;s CPU (number of cores/threads). Be aware that OS threads spawned with spawn have limitations in regard to concurrency, including resource overhead and scalability issues, and might affect performance in cases of high thread count.</p>
+</blockquote>
+<p>Sometimes it is necessary to wait until a parallel thread has finished. This can be done by assigning a handle to the started thread and calling the wait() method to this handle later:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">math</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">p</span>(<span style="color:#a6e22e">a</span> <span style="color:#a6e22e">f64</span>, <span style="color:#a6e22e">b</span> <span style="color:#a6e22e">f64</span>) { <span style="color:#75715e">// ordinary function without return value</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">math</span>.<span style="color:#a6e22e">sqrt</span>(<span style="color:#a6e22e">a</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">b</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">b</span>)
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">c</span>) <span style="color:#75715e">// prints `5`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">h</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">p</span>(<span style="color:#ae81ff">3</span>, <span style="color:#ae81ff">4</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// p() runs in parallel thread</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">h</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// p() has definitely finished</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>This approach can also be used to get a return value from a function that is run in a parallel thread. There is no need to modify the function itself to be able to call it concurrently.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">math</span> { <span style="color:#a6e22e">sqrt</span> }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">get_hypot</span>(<span style="color:#a6e22e">a</span> <span style="color:#a6e22e">f64</span>, <span style="color:#a6e22e">b</span> <span style="color:#a6e22e">f64</span>) <span style="color:#a6e22e">f64</span> { <span style="color:#75715e">//       ordinary function returning a value</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">sqrt</span>(<span style="color:#a6e22e">a</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">a</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">b</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">b</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">c</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">g</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">get_hypot</span>(<span style="color:#ae81ff">54.06</span>, <span style="color:#ae81ff">2.08</span>) <span style="color:#75715e">// spawn thread and get handle to it</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">h1</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">get_hypot</span>(<span style="color:#ae81ff">2.32</span>, <span style="color:#ae81ff">16.74</span>) <span style="color:#75715e">//   do some other calculation here</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">h2</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">g</span>.<span style="color:#a6e22e">wait</span>() <span style="color:#75715e">//                 get result from spawned thread</span>
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Results</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">h1</span>}, <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">h2</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) <span style="color:#75715e">//   prints `Results: 16.9, 54.1`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>If there is a large number of tasks, it might be easier to manage them using an array of <code>threads</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">task</span>(<span style="color:#a6e22e">id</span> <span style="color:#66d9ef">int</span>, <span style="color:#a6e22e">duration</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">task</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">id</span>} <span style="color:#a6e22e">begin</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">sleep</span>(<span style="color:#a6e22e">duration</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">millisecond</span>)
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">task</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">id</span>} <span style="color:#a6e22e">end</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">threads</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">thread</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">threads</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">task</span>(<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">500</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">threads</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">task</span>(<span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">900</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">threads</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">task</span>(<span style="color:#ae81ff">3</span>, <span style="color:#ae81ff">100</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">threads</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">done</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Output:</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 1 begin</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 2 begin</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 3 begin</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 3 end</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 1 end</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// task 2 end</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// done</span>
+</span></span></code></pre></div><p>Additionally for threads that return the same type, calling <code>wait()</code> on the thread array will return all computed values.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">expensive_computing</span>(<span style="color:#a6e22e">i</span> <span style="color:#66d9ef">int</span>) <span style="color:#66d9ef">int</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">i</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">threads</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">thread</span> <span style="color:#66d9ef">int</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">1</span> .. <span style="color:#ae81ff">10</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">threads</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">expensive_computing</span>(<span style="color:#a6e22e">i</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Join all tasks</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">r</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">threads</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">All</span> <span style="color:#a6e22e">jobs</span> <span style="color:#a6e22e">finished</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">r</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Output: All jobs finished: [1, 4, 9, 16, 25, 36, 49, 64, 81]</span>
+</span></span></code></pre></div><h3 id="concurrency-communicating-over-channels">Concurrency: communicating over Channels</h3>
+<p>Channels are the preferred way to communicate between threads. They allow threads to exchange data safely without requiring explicit locking. V&rsquo;s channels are similar to those in Go, enabling you to push objects into a channel on one end and pop objects from the other. Channels can be buffered or unbuffered, and you can use the <code>select</code> statement to monitor multiple channels simultaneously.</p>
+<p>Channels are declared with the type <code>chan</code> objtype. You can optionally specify a buffer length using the <code>cap</code> field:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{} <span style="color:#75715e">// unbuffered - &#34;synchronous&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ch2</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">100</span>} <span style="color:#75715e">// buffered with a capacity of 100</span>
+</span></span></code></pre></div><p>You can define channels of various types, depending on the type of data you intend to pass via the channel (int, f64 in the example above).</p>
+<p>Channels do not have to be declared as <code>mut</code>. <strong>The buffer length is not part of the type but a field of the individual channel object</strong>. Channels can be passed to threads like normal variables:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">ch</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0</span> .. <span style="color:#ae81ff">5</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">i</span> <span style="color:#75715e">// push values into the channel</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">clock</span>(<span style="color:#a6e22e">ch</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0</span> .. <span style="color:#ae81ff">5</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">sleep</span>(<span style="color:#ae81ff">1</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">second</span>)
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Clock</span> <span style="color:#a6e22e">tick</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> (<span style="color:#a6e22e">i</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">1000</span>) <span style="color:#75715e">// push a value into the channel</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span>.close() <span style="color:#75715e">// close the channel when done</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">5</span>}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">ch</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">clock</span>(<span style="color:#a6e22e">ch</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">value</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span> <span style="color:#a6e22e">or</span> { <span style="color:#75715e">// receive/pop values from the channel</span>
+</span></span><span style="display:flex;"><span>            println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Channel</span> <span style="color:#a6e22e">closed</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Received</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">value</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Buffered channels allow you to push multiple items without blocking, as long as the buffer is not full:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">string</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">2</span>}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">hello</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">world</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ch &lt;- &#39;!&#39; // This would block because the buffer is full</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span>) <span style="color:#75715e">// &#34;hello&#34;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span>) <span style="color:#75715e">// &#34;world&#34;</span>
+</span></span></code></pre></div><p>A channel can be closed to indicate that no further objects can be pushed. Any attempt to do so will then result in a runtime panic (with the exception of select and try_push() - see below). Attempts to pop will return immediately if the associated channel has been closed and the buffer is empty. This situation can be handled using an or {} block.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ch2</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>{}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ch</span>.close()
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">m</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span> <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">channel</span> <span style="color:#a6e22e">has</span> <span style="color:#a6e22e">been</span> <span style="color:#a6e22e">closed</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// propagate error</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">y</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch2</span> <span style="color:#960050;background-color:#1e0010">?</span>
+</span></span></code></pre></div><h4 id="channel-select">Channel Select</h4>
+<p>The <code>select</code> command allows monitoring several channels at the same time without noticeable CPU load. It consists of a list of possible transfers and associated branches of statements - similar to the match command:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch2</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch3</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>{}
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">b</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">0.0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">c</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">1.0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ... setup spawn threads that will send on ch/ch2</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">the_channel</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">sleep</span>(<span style="color:#ae81ff">5</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">millisecond</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">the_channel</span> <span style="color:#f92672">&lt;-</span> <span style="color:#ae81ff">1.0</span>
+</span></span><span style="display:flex;"><span>    }(<span style="color:#a6e22e">ch</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">the_channel</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">sleep</span>(<span style="color:#ae81ff">1</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">millisecond</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">the_channel</span> <span style="color:#f92672">&lt;-</span> <span style="color:#ae81ff">1.0</span>
+</span></span><span style="display:flex;"><span>    }(<span style="color:#a6e22e">ch2</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">the_channel</span> <span style="color:#66d9ef">chan</span> <span style="color:#a6e22e">f64</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">_</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">the_channel</span>
+</span></span><span style="display:flex;"><span>    }(<span style="color:#a6e22e">ch3</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">select</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// do something with `a`</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span>&gt; <span style="color:#a6e22e">a</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">a</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">b</span> = <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch2</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// do something with predeclared variable `b`</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span>&gt; <span style="color:#a6e22e">b</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">b</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ch3</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">c</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// do something if `c` was sent</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">sleep</span>(<span style="color:#ae81ff">5</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">millisecond</span>)
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span>&gt; <span style="color:#a6e22e">c</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">c</span>} <span style="color:#a6e22e">was</span> <span style="color:#a6e22e">send</span> <span style="color:#a6e22e">on</span> <span style="color:#a6e22e">channel</span> <span style="color:#a6e22e">ch3</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#ae81ff">500</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">millisecond</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// do something if no channel has become ready within 0.5s</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span>&gt; <span style="color:#a6e22e">more</span> <span style="color:#a6e22e">than</span> <span style="color:#ae81ff">0.5</span><span style="color:#a6e22e">s</span> <span style="color:#a6e22e">passed</span> <span style="color:#a6e22e">without</span> <span style="color:#a6e22e">a</span> <span style="color:#a6e22e">channel</span> <span style="color:#a6e22e">being</span> <span style="color:#a6e22e">ready</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span>&gt; <span style="color:#a6e22e">done</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The timeout branch is optional. If it is absent <code>select</code> waits for an unlimited amount of time. It is also possible to proceed immediately if no channel is ready in the moment <code>select</code> is called by adding an <code>else { ... }</code> branch. <code>else</code> and <code>&lt;timeout&gt;</code> are mutually exclusive.</p>
+<p>The select command can be used as an expression of type bool that becomes false if all channels are closed:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#66d9ef">select</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">a</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// ...</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>} {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// channel was open</span>
+</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// channel is closed</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>For special purposes there are some builtin fields and methods:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">2</span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// try to perfomr ch &lt;- 42</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">ch</span>.<span style="color:#a6e22e">try_push</span>(<span style="color:#ae81ff">42</span>)) <span style="color:#75715e">// `success` if pushed, `not_ready` if full, `closed` if closed</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">ch</span>.<span style="color:#a6e22e">len</span>) <span style="color:#75715e">// Number of items in the buffer</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">ch</span>.<span style="color:#a6e22e">cap</span>) <span style="color:#75715e">// Buffer capacity</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">ch</span>.<span style="color:#a6e22e">closed</span>) <span style="color:#75715e">// Whether the channel is closed</span>
+</span></span></code></pre></div><blockquote>
+<p>The <code>try_push/pop()</code> methods will return immediately with one of the results <code>success</code>, <code>not_ready</code> or <code>closed</code> - dependent on whether the object has been transferred or the reason why not. Usage of these methods and fields in production is not recommended - algorithms based on them are often subject to race conditions. Especially <code>.len</code> and <code>.closed</code> should not be used to make decisions. Use <code>or</code> branches, error propagation or <code>select</code> instead.</p>
+</blockquote>
+<h3 id="concurrency-shared-objects">Concurrency: Shared Objects</h3>
+<p>Data can be exchanged between a thread and the calling thread via a shared variable. Such variables should be created as <code>shared</code> and passed to the thread as such, too. The underlying <code>struct</code> contains a hidden <em>mutex</em> that allows locking concurrent access using <code>rlock</code> for read-only and <code>lock</code> for read/write access.</p>
+<blockquote>
+<p>Note: Shared variables must be structs, arrays or maps.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Counter</span> {
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">value</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">shared</span> <span style="color:#a6e22e">counter</span> <span style="color:#a6e22e">Counter</span>) <span style="color:#a6e22e">increment</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">lock</span> <span style="color:#a6e22e">counter</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">counter</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">+=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Incremented</span> <span style="color:#a6e22e">to</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">counter</span>.<span style="color:#a6e22e">value</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">shared</span> <span style="color:#a6e22e">counter</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Counter</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">counter</span>.<span style="color:#a6e22e">increment</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spawn</span> <span style="color:#a6e22e">counter</span>.<span style="color:#a6e22e">increment</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rlock</span> <span style="color:#a6e22e">counter</span> {
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Final</span> <span style="color:#a6e22e">value</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">counter</span>.<span style="color:#a6e22e">value</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="difference-between-channels-and-shared-objects">Difference Between Channels and Shared Objects</h3>
+<p>Purpose:</p>
+<ul>
+<li>Channels: Used for message passing between threads, ensuring safe communication.</li>
+<li>Shared objects: Used for direct data sharing and modification between threads.</li>
+</ul>
+<p>Synchronization:</p>
+<ul>
+<li>Channels: Implicit (via channel operations)</li>
+<li>Shared objects: Explicit (via rlock/lock blocks)</li>
+</ul>
+<h3 id="optionresult-types-and-error-handling">Option/Result types and error handling</h3>
+<p><strong>Option</strong> types can represent a value or <code>none</code>.
+<strong>Result</strong> types may represent a value, or an <code>error</code> returned from a function.</p>
+<p>Option types are declared by prepending <code>?</code> to the type name: <code>?Type</code>. Result types use <code>!</code>: <code>!Type</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">id</span>   <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Repo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">users</span> []<span style="color:#a6e22e">User</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">r</span> <span style="color:#a6e22e">Repo</span>) <span style="color:#a6e22e">find_user_by_id</span>(<span style="color:#a6e22e">id</span> <span style="color:#66d9ef">int</span>) !<span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">user</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">users</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">id</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// V automatically wraps this into a result or option type</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">user</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> error(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">User</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">id</span>} <span style="color:#a6e22e">not</span> <span style="color:#a6e22e">found</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// A version of the function using an option</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">r</span> <span style="color:#a6e22e">Repo</span>) <span style="color:#a6e22e">find_user_by_id2</span>(<span style="color:#a6e22e">id</span> <span style="color:#66d9ef">int</span>) <span style="color:#960050;background-color:#1e0010">?</span><span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">user</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">users</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span> <span style="color:#f92672">==</span> <span style="color:#a6e22e">id</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">user</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">none</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">repo</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">Repo</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">users</span>: [<span style="color:#a6e22e">User</span>{<span style="color:#ae81ff">1</span>, <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Andrew</span><span style="color:#960050;background-color:#1e0010">&#39;</span>}, <span style="color:#a6e22e">User</span>{<span style="color:#ae81ff">2</span>, <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Bob</span><span style="color:#960050;background-color:#1e0010">&#39;</span>}, <span style="color:#a6e22e">User</span>{<span style="color:#ae81ff">10</span>, <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Charles</span><span style="color:#960050;background-color:#1e0010">&#39;</span>}]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">repo</span>.<span style="color:#a6e22e">find_user_by_id</span>(<span style="color:#ae81ff">10</span>) <span style="color:#a6e22e">or</span> { <span style="color:#75715e">// Option/Result types must be handled by `or` blocks</span>
+</span></span><span style="display:flex;"><span>        println(<span style="color:#a6e22e">err</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">id</span>) <span style="color:#75715e">// &#34;10&#34;</span>
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">name</span>) <span style="color:#75715e">// &#34;Charles&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">user2</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">repo</span>.<span style="color:#a6e22e">find_user_by_id2</span>(<span style="color:#ae81ff">10</span>) <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">return</span> }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// To create an Option var directly:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">my_optional_int</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">?</span>int(<span style="color:#a6e22e">none</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">my_optional_string</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">?</span>string(<span style="color:#a6e22e">none</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">my_optional_user</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">?</span><span style="color:#a6e22e">User</span>(<span style="color:#a6e22e">none</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The amount of work required to &ldquo;upgrade&rdquo; a function to an option/result function is minimal; you have to add a <code>?</code> or <code>!</code> to the return type and return <code>none</code> or an error (respectively) when something goes wrong.</p>
+<p>This is the primary mechanism for error handling in V. They are still values, like in Go, but the advantage is that errors can&rsquo;t be unhandled, and handling them is a lot less verbose. Unlike other languages, V does not handle exceptions with <code>throw/try/catch</code> blocks.</p>
+<p><code>err</code> is defined inside an <code>or</code> block and is set to the string message passed to the <code>error()</code> function.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">repo</span>.<span style="color:#a6e22e">find_user_by_id</span>(<span style="color:#ae81ff">7</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">err</span>) <span style="color:#75715e">// &#34;User 7 not found&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Use <code>err is ...</code> to compare errors:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">io</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">x</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">read</span>() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#a6e22e">is</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">Eof</span> {
+</span></span><span style="display:flex;"><span>        println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">end</span> <span style="color:#a6e22e">of</span> <span style="color:#a6e22e">file</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Only one <code>Option</code> or <code>Result</code> is allowed to be returned from a function. It is possible to return multiple values and still signal an error.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">multi_return</span>(<span style="color:#a6e22e">v</span> <span style="color:#66d9ef">int</span>) !(<span style="color:#66d9ef">int</span>, <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">v</span> &lt; <span style="color:#ae81ff">0</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> error(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">must</span> <span style="color:#a6e22e">be</span> <span style="color:#a6e22e">positive</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">v</span>, <span style="color:#a6e22e">v</span> <span style="color:#f92672">*</span> <span style="color:#a6e22e">v</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="handling-optionsresults">Handling options/results</h3>
+<p>There are four ways of handling an option/result.</p>
+<ol>
+<li>The first method is to propagate the error:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">http</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">f</span>(<span style="color:#a6e22e">url</span> <span style="color:#66d9ef">string</span>) !<span style="color:#66d9ef">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">resp</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">get</span>(<span style="color:#a6e22e">url</span>)!
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">resp</span>.<span style="color:#a6e22e">body</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The body of <code>f</code> is essentially a condensed version of:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">resp</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">get</span>(<span style="color:#a6e22e">url</span>) <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">err</span> }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> <span style="color:#a6e22e">resp</span>.<span style="color:#a6e22e">body</span>
+</span></span></code></pre></div><p><code>http.get</code> returns <code>!http.Response</code>. Because <code>!</code> follows the call, the error will be propagated to the caller of <code>f</code>. When using <code>?</code> after a function call producing an option, the enclosing function must return an option as well. If error propagation is used in the <code>main()</code> function it will panic instead, since the error cannot be propagated any further.</p>
+<ol start="2">
+<li>The second method is to break from execution early:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">repo</span>.<span style="color:#a6e22e">find_user_by_id</span>(<span style="color:#ae81ff">7</span>) <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">return</span> }
+</span></span></code></pre></div><p>Here, you can either call <code>panic()</code> or <code>exit(</code>), which will stop the execution of the entire program, or use a control flow statement (<code>return</code>, <code>break</code>, <code>continue</code>, etc) to break from the current block.</p>
+<blockquote>
+<p><code>break</code> and <code>continue</code> can only be used inside a <code>for</code> loop.</p>
+</blockquote>
+<ol start="3">
+<li>The third method is to provide a default value at the end of the <code>or</code> block. In case of an error, that value would be assigned instead, so it must have the same type as the content of the Option being handled.</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">do_something</span>(<span style="color:#a6e22e">s</span> <span style="color:#66d9ef">string</span>) !<span style="color:#66d9ef">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#a6e22e">s</span> <span style="color:#f92672">==</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">foo</span><span style="color:#960050;background-color:#1e0010">&#39;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">foo</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> error(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">invalid</span> <span style="color:#66d9ef">string</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">a</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">do_something</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">foo</span><span style="color:#960050;background-color:#1e0010">&#39;</span>) <span style="color:#a6e22e">or</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#66d9ef">default</span><span style="color:#960050;background-color:#1e0010">&#39;</span> } <span style="color:#75715e">// a will be &#39;foo&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">b</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">do_something</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">bar</span><span style="color:#960050;background-color:#1e0010">&#39;</span>) <span style="color:#a6e22e">or</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#66d9ef">default</span><span style="color:#960050;background-color:#1e0010">&#39;</span> } <span style="color:#75715e">// b will be &#39;default&#39;</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">a</span>)
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">b</span>)
+</span></span></code></pre></div><ol start="4">
+<li>The fourth method is to use <code>if</code> unwrapping:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">http</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#a6e22e">resp</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">get</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">https</span>:<span style="color:#75715e">//google.com&#39;) {</span>
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">resp</span>.<span style="color:#a6e22e">body</span>) <span style="color:#75715e">// resp is a http.Response, not an option</span>
+</span></span><span style="display:flex;"><span>} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    println(<span style="color:#a6e22e">err</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Above, <code>http.get</code> returns a <code>!http.Response</code>. <code>resp</code> is only in scope for the first <code>if</code> branch. <code>err</code> is only in scope for the <code>else</code> branch.</p>
+<h3 id="custom-error-types">Custom error types</h3>
+<p>V gives you the ability to define custom error types through the <code>IError</code> interface. The interface requires two methods: <code>msg() string</code> and <code>code() int</code>. Every type that implements these methods can be used as an error.</p>
+<p>When defining a custom error type it is recommended to embed the builtin <code>Error</code> default implementation. This provides an empty default implementation for both required methods, so you only have to implement what you really need, and may provide additional utility functions in the future.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">PathError</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Error</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">path</span> <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">err</span> <span style="color:#a6e22e">PathError</span>) <span style="color:#a6e22e">msg</span>() <span style="color:#66d9ef">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">open</span> <span style="color:#a6e22e">path</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">err</span>.<span style="color:#a6e22e">path</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">try_open</span>(<span style="color:#a6e22e">path</span> <span style="color:#66d9ef">string</span>) ! {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// V automatically casts this to IError</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">PathError</span>{
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">path</span>: <span style="color:#a6e22e">path</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">try_open</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#f92672">/</span><span style="color:#a6e22e">tmp</span><span style="color:#960050;background-color:#1e0010">&#39;</span>) <span style="color:#a6e22e">or</span> { panic(<span style="color:#a6e22e">err</span>) }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="json">JSON</h3>
+<p>JSON</p>
+<p>Because of the ubiquitous nature of JSON, support for it is built directly into V.</p>
+<p>V generates code for JSON encoding and decoding. No runtime reflection is used. This results in much better performance.</p>
+<h4 id="decoding-json">Decoding JSON</h4>
+<p>The <code>json.decode</code> function takes two arguments: the first is the type into which the JSON value should be decoded and the second is a string containing the JSON data.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">json</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">Foo</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">x</span> <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Adding a [required] attribute will make decoding fail, if that</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// field is not present in the input.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// If a field is not [required], but is missing, it will be assumed</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// to have its default value, like 0 for numbers, or &#39;&#39; for strings,</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// and decoding will not fail.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span> <span style="color:#66d9ef">string</span> <span style="color:#960050;background-color:#1e0010">@</span>[<span style="color:#a6e22e">required</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">age</span>  <span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Use the `@[skip]` attribute to skip certain fields.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// You can also use `@[json: &#39;-&#39;]`, and `@[sql: &#39;-&#39;]`, which will cause only</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// the `json` module to skip the field, or only the SQL orm to skip it.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">foo</span> <span style="color:#a6e22e">Foo</span> <span style="color:#960050;background-color:#1e0010">@</span>[<span style="color:#a6e22e">skip</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// If the field name is different in JSON, it can be specified</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">last_name</span> <span style="color:#66d9ef">string</span> <span style="color:#960050;background-color:#1e0010">@</span>[<span style="color:#a6e22e">json</span>: <span style="color:#a6e22e">lastName</span>]
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">data</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span>{ <span style="color:#e6db74">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Frodo&#34;</span>, <span style="color:#e6db74">&#34;lastName&#34;</span>: <span style="color:#e6db74">&#34;Baggins&#34;</span>, <span style="color:#e6db74">&#34;age&#34;</span>: <span style="color:#ae81ff">25</span>, <span style="color:#e6db74">&#34;nullable&#34;</span>: <span style="color:#a6e22e">null</span> }<span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">json</span>.<span style="color:#a6e22e">decode</span>(<span style="color:#a6e22e">User</span>, <span style="color:#a6e22e">data</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">eprintln</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">decode</span> <span style="color:#a6e22e">json</span>, <span style="color:#66d9ef">error</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">err</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">name</span>)
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">last_name</span>)
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">age</span>)
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// You can also decode JSON arrays:</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">sfoos</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span>[{<span style="color:#e6db74">&#34;x&#34;</span>:<span style="color:#ae81ff">123</span>},{<span style="color:#e6db74">&#34;x&#34;</span>:<span style="color:#ae81ff">456</span>}]<span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">foos</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">json</span>.<span style="color:#a6e22e">decode</span>([]<span style="color:#a6e22e">Foo</span>, <span style="color:#a6e22e">sfoos</span>)!
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">foos</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">x</span>)
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">foos</span>[<span style="color:#ae81ff">1</span>].<span style="color:#a6e22e">x</span>)
+</span></span></code></pre></div><h4 id="encoding-json">Encoding JSON</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">json</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">User</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span>  <span style="color:#66d9ef">string</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">score</span> <span style="color:#a6e22e">i64</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">data</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">map</span>[<span style="color:#66d9ef">string</span>]<span style="color:#66d9ef">int</span>{}
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">user</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">User</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span>:  <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Pierre</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">score</span>: <span style="color:#ae81ff">1024</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">data</span>[<span style="color:#e6db74">&#39;x&#39;</span>] = <span style="color:#ae81ff">42</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">data</span>[<span style="color:#e6db74">&#39;y&#39;</span>] = <span style="color:#ae81ff">360</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">json</span>.<span style="color:#a6e22e">encode</span>(<span style="color:#a6e22e">data</span>)) <span style="color:#75715e">// {&#34;x&#34;:42,&#34;y&#34;:360}</span>
+</span></span><span style="display:flex;"><span>println(<span style="color:#a6e22e">json</span>.<span style="color:#a6e22e">encode</span>(<span style="color:#a6e22e">user</span>)) <span style="color:#75715e">// {&#34;name&#34;:&#34;Pierre&#34;,&#34;score&#34;:1024}</span>
+</span></span></code></pre></div><h2 id="post-post-analysis">Post <em>post</em> analysis</h2>
+<p>Now that I&rsquo;ve followed through the introduction replacing the sections in &lsquo;Introduction to Go&rsquo; with that Vlang, the infancy of V has become visible to me as I discover many features and libraris of Go are missing. But I belive (at least for now, pray for me) that this would be an opportunity to learn more.</p>
+<h2 id="meme-time">Meme time</h2>
+<p>If you&rsquo;ve made this far, here&rsquo;s your gift:</p>
+<p><img src="./black-hat-v.png" alt="black-hat-v"></p>
+]]></description>
+      
+    </item>
+    
     
     
     <item>
