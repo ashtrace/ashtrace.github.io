@@ -504,7 +504,7 @@ Tag        Type                         Name/Value
       <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
       
       <guid>https://ashtrace.github.io/posts/tracing_file_descriptors/</guid>
-      <description><![CDATA[<p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&rsquo;t satify my itch.</p>
+      <description><![CDATA[<p>I was going through an easy pwn challenge—easy according to the platform, not my personal ranking. After successfully pwning the binary locally, I ran the same exploit against the remote challenge service and it completely fell apart. I checked the writeup hoping for clarity, but the explanation they gave didn’t really scratch the itch or fully explain why things behaved differently.</p>
 <p><img src="./writeup-remote-section.jpeg" alt="writeup-remote-section"></p>
 <p>There was no explanation regarding why the value of file-descriptor was to be <code>5</code>. Thus I went on a quest to trace for it.</p>
 <blockquote>

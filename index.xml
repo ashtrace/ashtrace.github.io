@@ -6,7 +6,667 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Sun, 30 Nov 2025 11:19:42 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Thu, 04 Dec 2025 22:28:48 +0530</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>Black Hat V: TCP Shenanigans</title>
+      <link>https://ashtrace.github.io/posts/black_hat_v_tcp/</link>
+      <pubDate>Thu, 04 Dec 2025 22:28:48 +0530</pubDate>
+      
+      <guid>https://ashtrace.github.io/posts/black_hat_v_tcp/</guid>
+      <description><![CDATA[<p>The following is the culmination of my first deep dive into V’s vastly undocumented stdlib—pieced together from scattered docs and actual module implementations on GitHub. Bear with me through the re-re-re-I-lost-count-re-invention of <em>the wheel of basic TCP tooling</em> as I learn V’s standard library by building a TCP port scanner, a buffered echo server, a port-forwarder, and a bind-shell wrapper.</p>
+<h2 id="understanding-tcp-handshake">Understanding TCP Handshake</h2>
+<p>While I sincerely hope that you&rsquo;d be already familiar with the nuances of the TCP handshake, I&rsquo;ll still touch the topic for the sake of it.</p>
+<h3 id="successful-handshake">Successful Handshake</h3>
+<p>Let&rsquo;s assume the existence of:</p>
+<ul>
+<li>the earth with its IT Infrastructure</li>
+<li>two entities (client and server) ready to talk on TCP</li>
+<li>the server has a port open to which the client wants to communicate</li>
+</ul>
+<p>The handshake:</p>
+<ul>
+<li>Client says hello marked as &lsquo;SYN&rsquo; packet</li>
+<li>Server (port) says thanks for hello + hello, &lsquo;SYN/ACK&rsquo;</li>
+<li>Client says thanks for hello &lsquo;ACK&rsquo;.</li>
+</ul>
+<p>The following image depicts the packets in a successful handshake.</p>
+<p><img src="./wireshark-tcp-handshake.png" alt="wireshark-tcp-handshake"></p>
+<h3 id="failed-handshake-closed-port">Failed Handshake: Closed port</h3>
+<p>Changing assumption</p>
+<ul>
+<li>the port is closed, server doesn&rsquo;t wanna talk</li>
+</ul>
+<p>The failed handshake:</p>
+<ul>
+<li>Client says hello marked as &lsquo;SYN&rsquo; packet</li>
+<li>Server (port) says bye, &lsquo;RST&rsquo;</li>
+</ul>
+<p><img src="./wireshark-closed-port.png" alt="wireshark-closed-port"></p>
+<h3 id="failed-handshake-filtered-port">Failed Handshake: Filtered port</h3>
+<p>Changing assumption</p>
+<ul>
+<li>the port is behind a firewall a.k.a <strong>filtered</strong></li>
+</ul>
+<p>The failed handshake:</p>
+<ul>
+<li>Client waits (yells in abyss) but no response from the server.</li>
+</ul>
+<p><img src="./wireshark-filtered-port.png" alt="wireshark-filtered-port"></p>
+<h2 id="writing-a-tcp-scanner">Writing a TCP Scanner</h2>
+<p>Basis the concepts we discussed above, we can enumerate the state of a port by the kind of the packet returned.</p>
+<p>V provides <code>net</code> standard library to work with networks. As per the <a href="https://modules.vlang.io/net.html">documentation</a>:</p>
+<blockquote>
+<p><em><code>net</code> provides networking functions. It is mostly a wrapper to BSD sockets, so you can listen on a port, connect to remote TCP/UDP services, and communicate with them.</em></p>
+</blockquote>
+<h3 id="create-a-project">Create a project</h3>
+<p>To setup a V project, create a directory with suitable name and run <code>v init</code> from within it.</p>
+<p><img src="./new-v-project.png" alt="new-v-project"></p>
+<p>After answering the set of questions prompted on terminal, it creates a hello-world project.</p>
+<p><img src="new-v-project-2.png" alt="new-v-project-2"></p>
+<h3 id="testing-for-port-availablity">Testing for port availablity.</h3>
+<p>Following the orginal source of reference (<a href="https://nostarch.com/blackhatgo">Black Hat Go</a>) I utilize the host <strong>scanme.nmap.org</strong> for the following shenanigans.</p>
+<p><img src="scanme-nmap-org.png" alt="scanme.nmap.org"></p>
+<p>Basis the documentation of <code>net</code> library, there exists <code>dial_tcp</code> function which</p>
+<ul>
+<li>accepts a single parameter name <code>oaddress</code> of type <code>string</code> that consists of the host and the port separated by a colon <code>:</code>.</li>
+<li>returns <code>!&amp;net.TcpConn</code> i.e. either a reference to <strong>TcpConn</strong> structure or error in case of successful or failed connection respectively.</li>
+</ul>
+<p>In the following code, I use <code>net.dial_tcp</code> to connect to <strong>scanme.nmap.org</strong> at port <strong>80</strong>. The <a href="https://docs.vlang.io/statements-&amp;-expressions.html#if-unwrapping"><code>if</code>-unwrapping</a> verfies for a successfully connection. If an error is returned by <code>net.dial_tcp</code>, the initialization of <code>conn</code> returns <code>false</code> and the condition is validated approriately.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">scanme</span>.<span style="color:#a6e22e">nmap</span>.<span style="color:#a6e22e">org</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {                 <span style="color:#75715e">// use `conn` initializatin to convert the net.dial_tcp function call to boolean condition</span>
+</span></span><span style="display:flex;"><span>		println(<span style="color:#e6db74">&#34;Successfully connected to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#e6db74">&#34;Failed to connect to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>You can run the code mentioned above as follows (skipping the <code>-w</code> flag allows the v compilter to complain for unused variable <code>conn</code>).</p>
+<p><img src="basic-port-connection-successful.png" alt="basic-port-connection-successful"></p>
+<h3 id="performing-non-concurrent-scanning">Performing Non-concurrent Scanning</h3>
+<p>Utilizing a loop would help to rotate the <code>port</code> value in the connection string parameter to <code>net.dial_tcp</code>. Also, <code>.close()</code> can be used on a mutable instance of <code>net.TcpConn</code> to close the connection.</p>
+<p>A sample code to scan the first hundred ports may appear as:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">scanme</span>.<span style="color:#a6e22e">nmap</span>.<span style="color:#a6e22e">org</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">port</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..1024</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>			println(<span style="color:#e6db74">&#34;Successfully connected to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#e6db74">&#34;Failed to close connection to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>			println(<span style="color:#e6db74">&#34;Failed to connect to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="basic-port-scan.png" alt="basic-port-scan"></p>
+<h3 id="performing-concurrent-scanning">Performing Concurrent Scanning</h3>
+<p>I will use goroutines provided by V runtime to execute concurrent lightweight threads.</p>
+<p>Firstly, I create a <a href="https://docs.vlang.io/functions-2.html#closures">closure</a> within <code>main()</code> to use the <code>host</code> variable and pass it a <code>port</code> parameter.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">host</span>] (<span style="color:#a6e22e">port</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Successfully</span> <span style="color:#a6e22e">connected</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> { println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Next, I use this function with goroutines to scan first 100 ports</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">scanme</span>.<span style="color:#a6e22e">nmap</span>.<span style="color:#a6e22e">org</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">p</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..100</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">host</span>] (<span style="color:#a6e22e">port</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Successfully</span> <span style="color:#a6e22e">connected</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> { println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span><span style="display:flex;"><span>			} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}(<span style="color:#a6e22e">p</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Owing to lack of wait for the goroutines to finish their work, the program exits before connections are established and the program fails to provide results.</p>
+<p><img src="./too-fast-scanner.png" alt="too-fast-scanner"></p>
+<p>Adding a <code>wait()</code> for the goroutines does allow for the execution of the function to finish but the results may vary owing to limitation of network resources.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">localhost</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">routines</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">thread</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">p</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..65536</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">routines</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#66d9ef">go</span> <span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">host</span>] (<span style="color:#a6e22e">port</span> <span style="color:#66d9ef">int</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Successfully</span> <span style="color:#a6e22e">connected</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> { println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) }
+</span></span><span style="display:flex;"><span>			} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Failed</span> <span style="color:#a6e22e">to</span> <span style="color:#a6e22e">connect</span> <span style="color:#a6e22e">to</span> <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}(<span style="color:#a6e22e">p</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">routines</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="./inconsistent-scanner.png" alt="inconsistent-scanner"></p>
+<h3 id="port-scanning-using-worker-pools">Port Scanning using worker pools</h3>
+<p>To avoid inconsistencies, a pool of goroutines can be created to manage the task being performed. A <code>for</code> loop can be used to create a resource pool of worker goroutines. Next, in <code>main()</code> <em>thread</em>, use a <strong>channel</strong> to provide work.</p>
+<p>To keep track of a worker, I will use <a href="https://modules.vlang.io/sync.html#readme_sync"><code>sync</code></a> module&rsquo;s <a href="https://modules.vlang.io/sync.html#WaitGroup"><code>WaitGroup</code></a> implementation.</p>
+<p>The following code segment creates a resource pool of ten workers and uses them to output numbers within the 0 to 99 (inclusive) range using a buffered channel with a capacity of 100 elements.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">sync</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">ch</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>) {	<span style="color:#75715e">// worker function</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> {				
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">val</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ch</span> <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">continue</span> } 		<span style="color:#75715e">// monitor the channel for input</span>
+</span></span><span style="display:flex;"><span>		println(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">val</span>}<span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">n</span><span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">10</span>}			<span style="color:#75715e">// instantiate a buffered channel to provide port number to the worker function</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">wg</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">new_waitgroup</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">_</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0.</span>.<span style="color:#a6e22e">ch</span>.<span style="color:#a6e22e">cap</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">wg</span>.<span style="color:#66d9ef">go</span>(<span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">ch</span>] () {			<span style="color:#75715e">// WaitGroup.go() function manages the WaitGroup.add() and WaitGroup.done() function calls</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">ch</span>)
+</span></span><span style="display:flex;"><span>        })
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">i</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..100</span> {				<span style="color:#75715e">// Communicate port number through the channel</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">ch</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">i</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">wg</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ch</span>.close()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>When the previously built code for port scan is plugged into the worker function, I do get results but in no particular order. (I separated the WaitGroup call  <code>wg.go</code> into <code>wg.add()</code> and <code>wg.done()</code> for better control).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">sync</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">host</span> <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">ports</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">wg</span> <span style="color:#f92672">&amp;</span><span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">WaitGroup</span>) {		<span style="color:#75715e">// worker function</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> {				
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ports</span> <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">continue</span> } 								<span style="color:#75715e">// monitor the channel for input</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>			println(<span style="color:#e6db74">&#34;Successfully connected to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>				println(<span style="color:#e6db74">&#34;Failed to close connection to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>			println(<span style="color:#e6db74">&#34;Failed to connect to ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">wg</span>.<span style="color:#a6e22e">done</span>()														<span style="color:#75715e">// signify work completion</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ports</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">100</span>}			<span style="color:#75715e">// instantiate a buffered channel to provide port number to the worker function</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">wg</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">sync</span>.<span style="color:#a6e22e">new_waitgroup</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">_</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0.</span>.<span style="color:#a6e22e">ports</span>.<span style="color:#a6e22e">cap</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">worker</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">localhost</span><span style="color:#960050;background-color:#1e0010">&#39;</span>, <span style="color:#a6e22e">ports</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">wg</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">port</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..65536</span> {				
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">wg</span>.<span style="color:#a6e22e">add</span>(<span style="color:#ae81ff">1</span>)						<span style="color:#75715e">// add the work</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">ports</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">port</span>					<span style="color:#75715e">// Communicate port number through the channel</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">wg</span>.<span style="color:#a6e22e">wait</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ports</span>.close()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="no-order-concurrent-scan.png" alt="no-order-concurrent-scan"></p>
+<h3 id="multichannel-communication">Multichannel Communication</h3>
+<p>By using two threads</p>
+<ul>
+<li>One for sending port to worker for scanning</li>
+<li>Second for receivng the result</li>
+</ul>
+<p>we can order the result of port scan. This also eliminates the need for <code>WaitGroup</code> as the number of inputs to and outputs from the worker pool remain constant for the batch of ports scanned. As explained better in the book <a href="https://nostarch.com/blackhatgo">Black Hat Go</a>:</p>
+<blockquote>
+<p>For example, if you scan 1024 ports, you’re sending on the worker channel 1024 times,and you’ll need to send the result of that work back to the main thread 1024 times. Because the number of work units sent and the number of results received are the same, your program can know when to close the channels and subsequently shut down the workers.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">host</span> <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">ports</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>, <span style="color:#a6e22e">results</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>) {				<span style="color:#75715e">// worker function</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> {				
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">ports</span> <span style="color:#a6e22e">or</span> { <span style="color:#66d9ef">continue</span> } 								<span style="color:#75715e">// monitor the channel for input</span>
+</span></span><span style="display:flex;"><span>		
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#960050;background-color:#1e0010">&#39;$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {}
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">results</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">port</span>												<span style="color:#75715e">// record the port number</span>
+</span></span><span style="display:flex;"><span>		} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">results</span> <span style="color:#f92672">&lt;-</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>												<span style="color:#75715e">// -1 signifies a closed port</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">scanme</span>.<span style="color:#a6e22e">nmap</span>.<span style="color:#a6e22e">org</span><span style="color:#960050;background-color:#1e0010">&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ports</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">100</span>}			<span style="color:#75715e">// buffered channel to provide port number to the worker function</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">results</span> <span style="color:#f92672">:=</span> <span style="color:#66d9ef">chan</span> <span style="color:#66d9ef">int</span>{<span style="color:#a6e22e">cap</span>: <span style="color:#ae81ff">100</span>}		<span style="color:#75715e">// buffered channel to retrieve result from worker function</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">openports</span> <span style="color:#f92672">:=</span> []<span style="color:#66d9ef">int</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#a6e22e">_</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0.</span>.<span style="color:#a6e22e">ports</span>.<span style="color:#a6e22e">cap</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">worker</span>(<span style="color:#a6e22e">host</span>, <span style="color:#a6e22e">ports</span>, <span style="color:#a6e22e">results</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">ports</span>] () {					<span style="color:#75715e">// thread to communicate ports</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">port</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..1024</span> {				
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">ports</span> <span style="color:#f92672">&lt;-</span><span style="color:#a6e22e">port</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">_</span> <span style="color:#a6e22e">in</span> <span style="color:#ae81ff">0..1024</span> {					<span style="color:#75715e">// fetch back the results (in this main thread)</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#f92672">&lt;-</span> <span style="color:#a6e22e">results</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">port</span> <span style="color:#f92672">!=</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">openports</span> <span style="color:#f92672">&lt;&lt;</span> <span style="color:#a6e22e">port</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ports</span>.close()
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">results</span>.close()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">openports</span>.<span style="color:#a6e22e">sort</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> <span style="color:#a6e22e">port</span> <span style="color:#a6e22e">in</span> <span style="color:#a6e22e">openports</span> {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">Open</span>: <span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">host</span>}:<span style="color:#960050;background-color:#1e0010">$</span>{<span style="color:#a6e22e">port</span>}<span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="./top-1024-ports-concurrent-sorted-scan.png" alt="top-1024-ports-concurrent-sorted-scan"></p>
+<h2 id="building-a-tcp-proxy">Building a TCP Proxy</h2>
+<p>This section first walks through a TCP <em>echo server</em> that echoes a given response back to the client. Next, we build a port forwarder and implement netcat&rsquo;s code execution features.</p>
+<h3 id="using-ioreader-and-iowriter">Using io.Reader and io.Writer</h3>
+<p>Similar to Go, V provides with <a href="https://modules.vlang.io/io.html#Reader"><code>io.Reader</code></a> and <a href="https://modules.vlang.io/io.html#Writer"><code>io.Writer</code></a> interfaces with a single requirement of <code>read</code> and <code>write</code> functions respectively.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">// Reader represents a stream of data that can be read.</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Reader</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// read reads up to buf.len bytes and places</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// them into buf.</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// A type that implements this should return</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// `io.Eof` on end of stream (EOF) instead of just returning 0</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Writer is the interface that wraps the write method, which writes buf.len bytes to the underlying data stream.</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">Writer</span> {
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">mut</span>:
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>An example implementation of the above described interfaces can be:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">os</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">ExampleReader</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">r</span> <span style="color:#a6e22e">ExampleReader</span>) <span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">eprint</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">in</span>&gt; <span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">stdin</span>().<span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span>)					<span style="color:#75715e">// os.stdin() returns an os.File struct which implements io.Reader.read() as read() for stdin</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">ExampleWriter</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">w</span> <span style="color:#a6e22e">ExampleWriter</span>) <span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">eprint</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">out</span>&gt; <span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">stdout_handle</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">stdout</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">stdout_handle</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span>)					<span style="color:#75715e">// os.stdout() returns an os.File struct which implements io.Writer.write() as write() for stdout</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">reader</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">ExampleReader</span>{}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">writer</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">ExampleWriter</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">u8</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">4096</span>}		<span style="color:#75715e">// io.Reader and io.Writer interfaces work on basis of buf.len</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">bufLen</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">reader</span>.<span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span>) {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#e6db74">&#34;Read ${bufLen} bytes from stdin.&#34;</span>)
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to read data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">bufLen</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">writer</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span>) {
+</span></span><span style="display:flex;"><span>		println(<span style="color:#e6db74">&#34;Wrote ${bufLen} bytes to stdout.&#34;</span>)
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to write data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The following is output of the program for input <code>hello\n</code></p>
+<p><img src="./basic-io-wrapper.png" alt="basic-io-wrapper"></p>
+<p>As copying data from Reader to Writer is a fairly common pattern, thus languages like Go and V provide a copy functionality - <a href="https://modules.vlang.io/io.html#cp"><code>cp</code></a> function can be used in V for this.</p>
+<blockquote>
+<p><code>cp</code> copies from <code>src</code> to <code>dst</code> by allocating a maximum of 1024 bytes buffer for reading until either EOF is reached on <code>src</code> or an error occurs. An error is returned if an error is encountered during write.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">cp</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">src</span> <span style="color:#a6e22e">Reader</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">dst</span> <span style="color:#a6e22e">Writer</span>, <span style="color:#a6e22e">params</span> <span style="color:#a6e22e">CopySettings</span>) !
+</span></span></code></pre></div><p>The <code>main()</code> function can be re-written as:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">io</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">os</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">ExampleReader</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">r</span> <span style="color:#a6e22e">ExampleReader</span>) <span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">eprint</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">in</span>&gt; <span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">stdin</span>().<span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">ExampleWriter</span> {}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> (<span style="color:#a6e22e">w</span> <span style="color:#a6e22e">ExampleWriter</span>) <span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span> []<span style="color:#a6e22e">u8</span>) !<span style="color:#66d9ef">int</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">eprint</span>(<span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">out</span>&gt; <span style="color:#960050;background-color:#1e0010">&#39;</span>)
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">stdout_handle</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">stdout</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">stdout_handle</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">buf</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">reader</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">ExampleReader</span>{}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">writer</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">ExampleWriter</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">cp</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">reader</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">writer</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to read/write data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="./basic-io-wrapper-2.png" alt="basic-io-wrapper-2"></p>
+<h3 id="creating-an-echo-server">Creating an Echo Server</h3>
+<p>V provides with <a href="https://modules.vlang.io/net.html#TcpConn"><code>TcpConn</code></a> struct which implements the <code>read()</code> and <code>write()</code> functions similar to those discussed above.</p>
+<p>The function <a href="https://modules.vlang.io/net.html#listen_tcp"><code>listen_tcp()</code></a> allows to listen for connections and returns an <a href="https://modules.vlang.io/net.html#TcpListener"><code>TcpListener</code></a> object which exposes <a href="https://modules.vlang.io/net.html#TcpListener.accept"><code>accept()</code></a> function to accept connections represented as <code>TcpConn</code> object.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// process a connection from client</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">echo</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">TcpConn</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// at the end of it all, please close the connection</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to close connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// buffer to store messages</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span> <span style="color:#f92672">:=</span> []<span style="color:#a6e22e">u8</span>{<span style="color:#a6e22e">len</span>: <span style="color:#ae81ff">512</span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// read from client</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">n</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">conn</span>.<span style="color:#a6e22e">read</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">buf</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to read from connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// validate client did not disconnect</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">n</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Client disconnected.&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// create a slice from buffer space upto the data transferred</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">data</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">buf</span>[..<span style="color:#a6e22e">n</span>].<span style="color:#a6e22e">clone</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Received ${n} bytes: ${data}&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// return the data back to the client</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Writing back...&#34;</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">data</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to write to connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// tell log.info() to print on `stdout` rather than `stderr`</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">use_stdout</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// port to listen on</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">20080</span>
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// create a listener</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">listener</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">listen_tcp</span>(<span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">AddrFamily</span>.<span style="color:#a6e22e">ip</span>, <span style="color:#e6db74">&#34;:${port}&#34;</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to start a TCP listener on port: ${port}.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Opened a TCP listener on port: ${port}.&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// infinite loop to listen and accept connections</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">listener</span>.<span style="color:#a6e22e">accept</span>() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to accept connections.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// handle each connection in separate thread</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">echo</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Interacting with the echo server using <code>telnet</code> or <code>nc</code> demonstrates that the server stands up to its name.</p>
+<p><img src="./echo-server.png" alt="echo-server"></p>
+<p>While <code>TcpConn.read()</code> and <code>TcpConn.write()</code> provide read/write capabilities on the socket, they require manual buffer tracking and low-level calls on the connection object. This can be futher improved using a buffered I/O mechanism by levaraging the <a href="https://modules.vlang.io/io.html#BufferedReader"><code>BufferedReader</code></a> and <a href="https://modules.vlang.io/io.html#BufferedWriter"><code>BufferedWriter</code></a> structs from <code>io</code> module.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">io</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">echo</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">TcpConn</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to close connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// create a buffered reader</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">reader</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">new_buffered_reader</span>(<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">BufferedReaderConfig</span>{<span style="color:#a6e22e">reader</span>: <span style="color:#a6e22e">conn</span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// create a buffered writer</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">writer</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">new_buffered_writer</span>(<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">BufferedWriterConfig</span>{<span style="color:#a6e22e">writer</span>: <span style="color:#a6e22e">conn</span>}) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to create buffered writer.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// read line with delimiter at new-line.</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">s</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">reader</span>.<span style="color:#a6e22e">read_line</span>(<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">BufferedReadLineConfig</span>{<span style="color:#a6e22e">delim</span>: <span style="color:#e6db74">`\n`</span>}) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to read data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Received ${s.len} bytes: ${s}&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Writing data&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// echo back the data using buffere writer (as per documentatio: write writes src in the buffer, flushing it to the underlying writer as needed, and returns the number of bytes written.)</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">writer</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">bytes</span>()) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to write data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="./echo-server-buffered.png" alt="echo-server-buffered"></p>
+<p>This can also be achived using <code>io.cp()</code> as it manages buffer and copies for reader to writer i.e. echoes.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">echo</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">TcpConn</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to close connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">cp</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to read/write data.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="echo-cp.png" alt="echo-cp"></p>
+<h3 id="proxying-a-tcp-client">Proxying a TCP Client</h3>
+<p>For this scenario, I configured a linux VM on a shared network interface. Such that the network is as follows:</p>
+<ul>
+<li>Host Machine: 192.168.1.5 on wlan0</li>
+<li>Virtual Machine: 192.168.1.7 on eth0</li>
+</ul>
+<p>The host machine serves a website on 127.0.0.1:8000</p>
+<p><img src="./host-ip-and-server.png" alt="host-ip-and-server"></p>
+<p><img src="./vm-ip.png" alt="vm-ip"></p>
+<p>Being hosted on loopback interface of the host, this website is not directly accessible to the virtual machine. A port-forward proxy transfer packets from wlan0 host machine to loopback can be of aid in this situation.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">io</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">handle</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">src</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">TcpConn</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">dst</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">dial_tcp</span>(<span style="color:#e6db74">&#34;127.0.0.1:8000&#34;</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to connect to 127.0.0.1:8000&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">dst</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">fn</span> [<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">src</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">dst</span>] () {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">cp</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">src</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">dst</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to write to 127.0.0.1:8000&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">cp</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">dst</span>, <span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">src</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to write to 192.168.1.5:8080&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">listener</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">listen_tcp</span>(<span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">AddrFamily</span>.<span style="color:#a6e22e">ip</span>, <span style="color:#e6db74">&#34;192.168.1.5:8080&#34;</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to start a TCP server on port 192.168.1.5:8080.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">listener</span>.<span style="color:#a6e22e">accept</span>() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Unable to accept connections.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">handle</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Running it opens up port 8080 (http-alt) on 192.168.1.5</p>
+<p><img src="./http-alt-open.png" alt="http-alt-open"></p>
+<p>A <code>curl</code> from within the virtual machine demonstrates how the request is proxied to 127.0.0.1:8000.</p>
+<p><img src="./proxied-req.png" alt="proxied-req"></p>
+<h3 id="replicating-netcat-for-command-execution">Replicating Netcat for Command Execution</h3>
+<p>The <a href="https://modules.vlang.io/os.html#Process"><code>os.Process</code></a> struct can be used to execute processes. In following code, I launch an instance of <code>/bin/sh</code>. Through an infinite <code>for</code> loop, I process the input and return the output back to the client using buffered reader and writer (discussed above).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#a6e22e">module</span> <span style="color:#a6e22e">main</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">os</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">io</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">net</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> <span style="color:#a6e22e">log</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">handle</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">TcpConn</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Create buffered streams from the connection</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">reader</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">new_buffered_reader</span>(<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">BufferedReaderConfig</span>{<span style="color:#a6e22e">reader</span>: <span style="color:#a6e22e">conn</span>})
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">writer</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">new_buffered_writer</span>(<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">BufferedWriterConfig</span>{<span style="color:#a6e22e">writer</span>: <span style="color:#a6e22e">conn</span>}) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to create buffered writer.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Create a new &#39;/bin/sh -i&#39; process</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">proc</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">os</span>.<span style="color:#a6e22e">Process</span>{
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">filename</span>: <span style="color:#e6db74">&#34;/bin/sh&#34;</span>,
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">defer</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">proc</span>.close()
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">conn</span>.close() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.error(<span style="color:#e6db74">&#34;Unable to close connection.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Enable redirect for stdin/stdout/stderr</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">proc</span>.<span style="color:#a6e22e">set_redirect_stdio</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Start the process</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">proc</span>.<span style="color:#a6e22e">run</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// read-exec-return loop</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// read input from client</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">input</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">reader</span>.<span style="color:#a6e22e">read_line</span>() <span style="color:#a6e22e">or</span> { 
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.error(<span style="color:#e6db74">&#34;Unable to read command. Client possibly disconnected.&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// provide input to the process</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">proc</span>.<span style="color:#a6e22e">stdin_write</span>(
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// handle edge-case where blank input breaks /bin/sh</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">input</span>.<span style="color:#a6e22e">len</span> <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span> {<span style="color:#a6e22e">input</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;\n&#39;</span>} <span style="color:#66d9ef">else</span> { <span style="color:#960050;background-color:#1e0010">&#39;</span><span style="color:#a6e22e">echo</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#a6e22e">n</span><span style="color:#960050;background-color:#1e0010">&#39;</span> }
+</span></span><span style="display:flex;"><span>		)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// fetch back the result</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">writer</span>.<span style="color:#a6e22e">write</span>(<span style="color:#a6e22e">proc</span>.<span style="color:#a6e22e">stdout_read</span>().<span style="color:#a6e22e">bytes</span>()) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.error(<span style="color:#e6db74">&#34;Unable to fetch output&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// flush the result to client</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">writer</span>.<span style="color:#a6e22e">flush</span>() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.error(<span style="color:#e6db74">&#34;Unable to send output&#34;</span>)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">fn</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">use_stdout</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">host</span> <span style="color:#f92672">:=</span> <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">port</span> <span style="color:#f92672">:=</span> <span style="color:#ae81ff">20080</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">listener</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">listen_tcp</span>(<span style="color:#a6e22e">net</span>.<span style="color:#a6e22e">AddrFamily</span>.<span style="color:#a6e22e">ip</span>, <span style="color:#e6db74">&#34;${host}:${port}&#34;</span>) <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to spawn a listener.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#34;Started listener on ${host}:${port}&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">listener</span>.<span style="color:#a6e22e">accept</span>() <span style="color:#a6e22e">or</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">log</span>.<span style="color:#a6e22e">fatal</span>(<span style="color:#e6db74">&#34;Failed to accept connections.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">go</span> <span style="color:#a6e22e">handle</span>(<span style="color:#a6e22e">mut</span> <span style="color:#a6e22e">conn</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><img src="./cmd-exec.png" alt="cmd-exec"></p>
+<p>Swapping the process filename from <code>/bin/sh</code> to <code>c:\\windows\\system32\\cmd.exe</code> and cross-compiling for Microsoft Windows allowed the bind-shell to work on a different OS with minimal effor.</p>
+<p><img src="./cmd-exec-win.png" alt="cmd-exec-win"></p>
+<h2 id="meme-time">Meme Time</h2>
+<p><img src="./meme-my-echo-server.png" alt="meme-my-echo-server"></p>
+]]></description>
+      
+    </item>
+    
     
     
     <item>
@@ -2087,7 +2747,7 @@ Tag        Type                         Name/Value
       <pubDate>Sat, 05 Oct 2024 00:09:08 +0530</pubDate>
       
       <guid>https://ashtrace.github.io/posts/tracing_file_descriptors/</guid>
-      <description><![CDATA[<p>I was going through an easy (as per the challenge platform, not personal ranking) pwn challenge. After successfully pwning the binary locally, I ran my exploit against the remote challenge service and failed. Referring to the writeup document I found an explaination that didn&rsquo;t satify my itch.</p>
+      <description><![CDATA[<p>I was going through an easy pwn challenge—easy according to the platform, not my personal ranking. After successfully pwning the binary locally, I ran the same exploit against the remote challenge service and it completely fell apart. I checked the writeup hoping for clarity, but the explanation they gave didn’t really scratch the itch or fully explain why things behaved differently.</p>
 <p><img src="./writeup-remote-section.jpeg" alt="writeup-remote-section"></p>
 <p>There was no explanation regarding why the value of file-descriptor was to be <code>5</code>. Thus I went on a quest to trace for it.</p>
 <blockquote>
