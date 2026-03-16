@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html class="" lang="en-us"><head>
+    
+    <meta name="robots" content="noai, noimageai">
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=7" />
+
+    <link
+    rel="icon"
+    href='/favicon.png'
+/>
+<link
+    rel="shortcut icon"
+    href='/favicon.ico'
+    type="image/x-icon"
+/>
+<link
+    rel="apple-touch-icon"
+    href='/apple-touch-icon.png'
+/>
+
+    <link
+        rel="icon"
+        href='/logo.svg'
+        type="image/svg+xml"
+    />
+
+<title>
+        
+            SOC Homelab 101 - Learning Defensive Solutions  &ndash;
+        
+        ashtrace | blog
+    </title>
+
+    
+    <link href="/symbols-nerd-font/symbols-nerd-font.css" rel="stylesheet" />
+    <link href="/jetbrains-mono/jetbrains-mono.css" rel="stylesheet" />
+
+    
+    
+    <link type="text/css" rel="stylesheet" href=https://ashtrace.github.io/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
+<meta name="author" content="Aishwarya Raj" />
+
+    
+        <meta name="keywords" content='blue team, homelab' />
+    
+    
+        <meta name="description" content="the AD Homelab, I failed to focus on defensive capabilities of Wazuh as XDR so this time I planned to build a lab focused on detection solutions. Rather than Wazuh, in this iteration I tried to get my hands dirty with Elastic and Kibana from the renowned ELK stack. Furthermore, I leveraged this exercise to learn about Vagrant and automation VM provisioning so unlike the previous homelab blog, this focuses on automating steps in place of manual configurations.&lt;/p&gt;" />
+    
+
+<meta property="og:site_name"
+    content='ashtrace | blog' />
+
+    <meta property="og:title" content="SOC Homelab 101 - Learning Defensive Solutions" />
+    <meta property="og:type" content="article" />
+    
+    <meta
+        property="article:author" content="Aishwarya Raj" />
+    
+    <meta
+        property="article:published_time"
+        content='2026-03-16T02:33:55Z-0400' />
+    
+        
+            <meta property="article:tag" content="blue team" />
+        
+            <meta property="article:tag" content="homelab" />
+        
+    
+    <meta property="og:url" content="https://ashtrace.github.io/posts/soc_homelab_101/" />
+    
+    
+    <meta property="og:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta property="og:description" content="&lt;p&gt;Unfortunately in the AD Homelab, I failed to focus on defensive capabilities of Wazuh as XDR so this time I planned to build a lab focused on detection solut" />
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="twitter:domain"
+      content='ashtrace.github.io'
+/>
+<meta property="twitter:url" content="https://ashtrace.github.io/posts/soc_homelab_101/" />
+
+
+    <meta name="twitter:title" content="SOC Homelab 101 - Learning Defensive Solutions" />
+    
+    
+    
+    <meta name="twitter:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta name="twitter:description" content="&lt;p&gt;Unfortunately in the AD Homelab, I failed to focus on defensive capabilities of Wazuh as XDR so this time I planned to build a lab focused on detection solut" />
+    
+
+<link rel="manifest" href="/manifest/index.json" />
+</head>
+
+
+<body>
+        <div id="baseContainer"><header class="">
+<div class="titleAndSearchContainer">
+        <div id="titleContainer">
+            
+                <a class="unstyledLink" href="/">
+                    <img src='/logo.svg' alt='Logo'/>
+                </a>
+            
+            <div class="rightOfLogo">
+                <div class="titleAndHamburger">
+                    <h1>
+                        <a class="unstyledLink" href="/">ashtrace | blog</a>
+                        
+                    </h1>
+                    
+                </div>
+                <div id="wide_nav"><nav>
+    
+    <ul id="main-nav">
+        <li><a href="/">Home</a></li>
+        
+            <li><a href="/posts/">Posts</a></li>
+        
+        
+        
+        
+        
+        
+        
+            <li><a href="/tags/">Tags</a></li>
+        
+        
+    </ul>
+</nav>
+</div>
+            </div>
+        </div>
+        <div class="search">
+    <input id="searchbar" type="text" placeholder='Search' />
+    <span class="nerdlink" onclick="newSearch();">&#xf002;</span>
+</div>
+<script>
+    function newSearch() {
+        let term = searchbar.value.trim();
+        if (!term) return;
+        location.href = `/search/?q=${term}`;
+    }
+    searchbar.onkeyup = (ev) => {if (ev.keyCode == 13) newSearch()};
+</script>
+
+    </div>
+    <div id="links">
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="/index.xml">
+    
+    
+        &#xf09e;
+    
+    <span>
+        RSS
+    </span>
+</a>
+
+        
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="https://github.com/ashtrace">
+    
+    
+        &#xf09b;
+    
+    <span>
+        GitHub
+    </span>
+</a>
+
+    </div>
+    
+
+</header>
+<div id="contentContainer">
+                <div id="content">
+                    <main>
+<article class="card single">
+    
+        <h1>SOC Homelab 101 - Learning Defensive Solutions</h1>
+    
+    
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2026-03-16
+
+
+        </p>
+    
+    
+    
+    
+    <div><p>Unfortunately in the AD Homelab, I failed to focus on defensive capabilities of Wazuh as XDR so this time I planned to build a lab focused on detection solutions. Rather than Wazuh, in this iteration I tried to get my hands dirty with Elastic and Kibana from the renowned ELK stack. Furthermore, I leveraged this exercise to learn about Vagrant and automation VM provisioning so unlike the previous homelab blog, this focuses on automating steps in place of manual configurations.</p>
+<p>I&rsquo;d love to take people on a stroll on how to setup ELK but there are a plethora of blogs/videos/documentation and other references on the internet. The following aims to be an explanation of the <a href="https://github.com/ashtrace/soc-homelab"><em>Vagrant provisioning scripts I developed</em></a> for automating the setup to describe the what/why/how of the steps I undertook.</p>
+<h2 id="the-environment">The Environment</h2>
+<p>The configuration of my host machine were as follows:</p>
+<ul>
+<li>OS: Debian 13</li>
+<li>Hypervisor: Virtualbox</li>
+</ul>
+<h2 id="installing-dependencies">Installing Dependencies</h2>
+<p>For Virtualbox, I downloaded the <code>.deb</code> file provided at <a href="https://www.virtualbox.org/wiki/Linux_Downloads"><em>Download VirtualBox for Linux Hosts</em></a> page for my particular host OS.</p>
+<p>Whereas Vagrant, I followed the instructions at the <a href="https://developer.hashicorp.com/vagrant/install"><em>Install Vagrant</em></a> documentation for linux.</p>
+<p><img src="./install-vagrant-linux.png" alt="install-vagrant-linux"></p>
+<h2 id="stage-0-the-plan">Stage 0: The Plan</h2>
+<p>I aimed for a simple 2 machine architecture for the lab:</p>
+<p><img src="./soc-siem-lab-arch.png" alt="soc-siem-lab-arch"></p>
+<p>While configuring the elastic/kibana services in the SIEM lab VM, I needed to save the API tokens and secrets being generated to leverage them while creating the endpoint device. Thus, I used the current project directory as a shared mounted drive while provisioning the VMs.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Vagrantfile" data-lang="Vagrantfile"><span style="display:flex;"><span><span style="color:#66d9ef">Vagrant</span><span style="color:#f92672">.</span>configure(<span style="color:#e6db74">&#34;2&#34;</span>) <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>config<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># Shared folder for passing Enrollment Tokens and Configs between VMs</span>
+</span></span><span style="display:flex;"><span>  config<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>synced_folder <span style="color:#e6db74">&#34;.&#34;</span>, <span style="color:#e6db74">&#34;/vagrant&#34;</span>
+</span></span></code></pre></div><h2 id="stage-1-the-elasticsearch-and-the-kibana">Stage 1: The Elasticsearch and The Kibana</h2>
+<p>While originally I wanted to continue with Wazuh (the reason being my very teeny-tiny experience with it beforehand), I switched to elasticsearch + kibana as I felt that I had a larger set of public documentation to refer. Bear in mind that I had no prior experience of Elastic/Kibana or any other blue-team oriented technology for that matter.</p>
+<p>For the first iteration I tried to configure things manually referring to <a href="https://www.digitalocean.com/community/tutorials/how-to-install-elasticsearch-logstash-and-kibana-elastic-stack-on-ubuntu-22-04"><em>digital ocean blogpost</em></a>. Only once I felt confident in my setup, I moved to the second phase of automating it with Vagrant.</p>
+<h3 id="vagrantfile">Vagrantfile</h3>
+<p>I define a vm named <code>soc</code> with Ubuntu 22.04 as mentioned before. I configured a static IPv4 address <code>192.168.56.20</code> and mentioned the path of the bash script (i.e. <code>provision/soc.sh</code>) which would contain the configuration steps to be ran with the privileged user context.</p>
+<p>Registering VirtualBox as my provider, I conifigured the display name visible on VirtualBox and provided with the machine with 12GB of RAM and 4 cores of CPU.</p>
+<p>Finally, I enabled the <code>linked_clone</code> feature to create a lightweight copy of base image and enabled I/O APIC for OS features along with nested VM capabilities for elastic defend (more on this later in the following sections).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Vagrantfile" data-lang="Vagrantfile"><span style="display:flex;"><span>  <span style="color:#75715e">########################################</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># SOC SIEM VM (Ubuntu 22.04 Jammy)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">########################################</span>
+</span></span><span style="display:flex;"><span>  config<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>define <span style="color:#e6db74">&#34;soc&#34;</span> <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>soc<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>    soc<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>box <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;ubuntu/jammy64&#34;</span>
+</span></span><span style="display:flex;"><span>    soc<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>hostname <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;soc-siem&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    soc<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>network <span style="color:#e6db74">&#34;private_network&#34;</span>, <span style="color:#e6db74">ip</span>: <span style="color:#e6db74">&#34;192.168.56.20&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    soc<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>provision <span style="color:#e6db74">&#34;shell&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">path</span>: <span style="color:#e6db74">&#34;provision/soc.sh&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">privileged</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    soc<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>provider <span style="color:#e6db74">&#34;virtualbox&#34;</span> <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>vb<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;soc-siem-lab&#34;</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>memory <span style="color:#f92672">=</span> <span style="color:#ae81ff">12288</span> <span style="color:#75715e"># 12GB RAM</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>cpus <span style="color:#f92672">=</span> <span style="color:#ae81ff">4</span>       <span style="color:#75715e"># 4 cores for CPU</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>linked_clone <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>customize <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;modifyvm&#34;</span>, <span style="color:#e6db74">:id</span>, <span style="color:#e6db74">&#34;--ioapic&#34;</span>, <span style="color:#e6db74">&#34;on&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># Enable nested VT-x (Required for some Elastic Defend features)</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>customize <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;modifyvm&#34;</span>, <span style="color:#e6db74">:id</span>, <span style="color:#e6db74">&#34;--nested-hw-virt&#34;</span>, <span style="color:#e6db74">&#34;on&#34;</span><span style="color:#f92672">]</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">end</span>
+</span></span></code></pre></div><h3 id="the-provisioning-script">The Provisioning script</h3>
+<p>The <code>provision/soc.sh</code> is a bash script file with commands to configure the elastic/kibana services in automated fashion, only after I had validated them manually. It starts as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/bin/bash
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>set -e
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Configuration Variables </span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>ELASTIC_PASSWORD<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;CHANGE_ME&#34;</span>
+</span></span><span style="display:flex;"><span>SHARED_DIR<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;/vagrant&#34;</span>
+</span></span><span style="display:flex;"><span>IP_ADDR<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;192.168.56.20&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>apt update
+</span></span><span style="display:flex;"><span>apt install -y curl wget apt-transport-https gnupg jq unzip
+</span></span></code></pre></div><p>The <code>set -e</code> command tells the script to stop running at the first error. Next, I configure the variables as mentioned in the preceeding sections. The <code>ELASTIC_PASSWORD</code> needs to be set to a secret phrase/password which shall be used to access the elasticsearch APIs and the dashboard. Following the variable declaration, dependecies are installed for later usage.</p>
+<h3 id="configuring-elasticsearch">Configuring Elasticsearch</h3>
+<p>Once the dependencies are installed, apt sources are configured for elasticsearch and kibana. Next, the script installs elasticsearch and configures it.</p>
+<p>The YAML file sets up cluster and node name, followed by paths for data and logs. Next, it configures the network host for the server. It enables security options required by Elastic Agent during enrollment while disabling HTTPs (I did not want to <code>curl -k</code> too much, its a homelab so I can take this risk but do not follow this in production environments).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">cluster.name</span>: <span style="color:#ae81ff">soc-lab</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">node.name</span>: <span style="color:#ae81ff">soc-node1</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">path.data</span>: <span style="color:#ae81ff">/var/lib/elasticsearch</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">path.logs</span>: <span style="color:#ae81ff">/var/log/elasticsearch</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">network.host</span>: <span style="color:#ae81ff">0.0.0.0</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">discovery.type</span>: <span style="color:#ae81ff">single-node</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># --- SECURITY SECTION ---</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">xpack.security.enabled</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">xpack.security.enrollment.enabled</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Disable HTTP SSL (for easy Browser/Kibana access)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">xpack.security.http.ssl.enabled</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Disable Transport SSL</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">xpack.security.transport.ssl.enabled</span>: <span style="color:#66d9ef">false</span>
+</span></span></code></pre></div><p>Next, the script starts the elasticsearch service and waits until it is reachable via <code>curl</code>. Following which, it resets the elasticsearch password to the one provided in <code>ELASTIC_PASSWORD</code> variable. Furthermore it resets kibana password and saves both of these secrets along with the version of elasticsearch installed in a text file with the shared folder (my current project directory) titled <code>elastic_config.txt</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Setup apt sources</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch |sudo gpg --dearmor -o /usr/share/keyrings/elastic.gpg
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main&#34;</span> &gt; /etc/apt/sources.list.d/elastic-8.x.list
+</span></span><span style="display:flex;"><span>apt update
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Install Elasticsearch</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>apt install elasticsearch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Configure Elasticsearch (disabled HTTPS and TLS, reset password  )</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>mkdir -p /var/lib/elasticsearch
+</span></span><span style="display:flex;"><span>mkdir -p /var/log/elasticsearch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>chown -R elasticsearch:elasticsearch /var/lib/elasticsearch
+</span></span><span style="display:flex;"><span>chown -R elasticsearch:elasticsearch /var/log/elasticsearch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>cat &gt; /etc/elasticsearch/elasticsearch.yml <span style="color:#e6db74">&lt;&lt;EOF
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">cluster.name: soc-lab
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">node.name: soc-node1
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">path.data: /var/lib/elasticsearch
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">path.logs: /var/log/elasticsearch
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">network.host: 0.0.0.0
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">discovery.type: single-node
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"># --- SECURITY SECTION ---
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">xpack.security.enabled: true
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">xpack.security.enrollment.enabled: true
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"># Disable HTTP SSL (for easy Browser/Kibana access)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">xpack.security.http.ssl.enabled: false
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"># Disable Transport SSL
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">xpack.security.transport.ssl.enabled: false
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">EOF</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Start Elasticsearch </span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>systemctl daemon-reload
+</span></span><span style="display:flex;"><span>systemctl enable --now elasticsearch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Waiting for Elasticsearch...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">until</span> curl http://localhost:9200 &gt;/dev/null 2&gt;&amp;<span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span> sleep <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Extract elastic password</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>printf <span style="color:#e6db74">&#34;y\n</span>$ELASTIC_PASSWORD<span style="color:#e6db74">\n</span>$ELASTIC_PASSWORD<span style="color:#e6db74">\n&#34;</span> | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i -f
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;elastic password: </span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span> &gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>KIBANA_PASSWORD<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>/usr/share/elasticsearch/bin/elasticsearch-reset-password -u kibana_system -f -b | grep <span style="color:#e6db74">&#34;New value:&#34;</span> | awk <span style="color:#e6db74">&#39;{print $NF}&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;kibana_system password: </span>$KIBANA_PASSWORD<span style="color:#e6db74">&#34;</span> &gt;&gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>chmod <span style="color:#ae81ff">644</span> $SHARED_DIR/elastic_config.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Validating new Elasticsearch password ...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -u elastic:$ELASTIC_PASSWORD http://localhost:9200
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ELASTIC_VERSION<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -u elastic:$ELASTIC_PASSWORD http://localhost:9200 | jq -r <span style="color:#e6db74">&#39;.version.number&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Installed Elasticsearch version: </span>$ELASTIC_VERSION<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Elasticsearch version: </span>$ELASTIC_VERSION<span style="color:#e6db74">&#34;</span> &gt;&gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span></code></pre></div><h3 id="configuring-kibana">Configuring Kibana</h3>
+<p>Within this segement, the script installs kibana, configures the server to listen on all interface, sets the elasticsearch host, username, and password generated from previous section.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">server.host</span>: <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">elasticsearch.hosts</span>: [<span style="color:#e6db74">&#34;http://localhost:9200&#34;</span>]
+</span></span><span style="display:flex;"><span><span style="color:#f92672">elasticsearch.username</span>: <span style="color:#e6db74">&#34;kibana_system&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">elasticsearch.password</span>: <span style="color:#e6db74">&#34;$KIBANA_PASSWORD&#34;</span>
+</span></span></code></pre></div><p>Then it generates the encryption keys required by elastic defend service during enrollment. Finally, it starts the service and validates the reachability.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Install Kibana</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">##################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sudo apt install kibana
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>cat &gt; /etc/kibana/kibana.yml <span style="color:#e6db74">&lt;&lt;EOF
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">server.host: &#34;0.0.0.0&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">elasticsearch.hosts: [&#34;http://localhost:9200&#34;]
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">elasticsearch.username: &#34;kibana_system&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">elasticsearch.password: &#34;$KIBANA_PASSWORD&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">EOF</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># For Elastic Defend</span>
+</span></span><span style="display:flex;"><span>/usr/share/kibana/bin/kibana-encryption-keys generate | grep -E <span style="color:#e6db74">&#39;^xpack\..*:&#39;</span> &gt; /tmp/kibana.keys
+</span></span><span style="display:flex;"><span>cat /tmp/kibana.keys &gt;&gt; /etc/kibana/kibana.yml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>systemctl daemon-reload
+</span></span><span style="display:flex;"><span>systemctl enable --now kibana
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Waiting for Kibana ...&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">until</span> <span style="color:#f92672">[</span> <span style="color:#e6db74">&#34;</span><span style="color:#66d9ef">$(</span>curl -s -u elastic:$ELASTIC_PASSWORD http://localhost:5601/api/status | jq -r <span style="color:#e6db74">&#39;.status.overall.level&#39;</span> 2&gt;/dev/null<span style="color:#66d9ef">)</span><span style="color:#e6db74">&#34;</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#34;available&#34;</span> <span style="color:#f92672">]</span>; <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;    - Still initializing plugins...&#34;</span>
+</span></span><span style="display:flex;"><span>    sleep <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span>
+</span></span></code></pre></div><h2 id="stage-2-fleet">Stage 2: Fleet</h2>
+<h3 id="terminologies">Terminologies</h3>
+<p>As per the elastic <a href="https://www.elastic.co/docs/reference/fleet">documentation</a>:</p>
+<blockquote>
+<p>Elastic Agent is a single, unified way to add monitoring for logs, metrics, and other types of data to a host. It can also protect hosts from security threats, query data from operating systems, forward data from remote services or hardware, and more. A single agent makes it easier and faster to deploy monitoring across your infrastructure. Each agent has a single policy you can update to add integrations for new data sources, security protections, and more.</p>
+</blockquote>
+<p>While <a href="https://www.elastic.co/docs/reference/fleet/manage-elastic-agents-in-fleet">fleet allows to</a>:</p>
+<blockquote>
+<p>Manage Elastic Agent binaries and specify settings installed on the host that determine whether the agent is enrolled in Fleet, what version of the agent is running, and which agent policy is used.
+Manage agent policies that specify agent configuration settings, which integrations are running, whether agent monitoring is turned on, input settings, and more.</p>
+</blockquote>
+<p>Using <code>fleet</code> one may configure <code>elastic agents</code>. These agents allow to monitor logs through <a href="https://www.elastic.co/docs/reference/integrations"><em><code>integrations</code></em></a>.</p>
+<blockquote>
+<p>Integrations provide an easy way to connect Elastic to external services and systems, and quickly get insights or take action. They can collect new sources of data, and they often ship with out-of-the-box assets like dashboards, visualizations, and pipelines to extract structured fields out of logs and events.</p>
+</blockquote>
+<p>Another important terminology is <code>Elastic Agent Policy</code></p>
+<blockquote>
+<p>Agent policies specify which integrations you want to run and on which hosts. You can apply an Elastic Agent policy to multiple agents, making it even easier to manage configuration at scale.</p>
+</blockquote>
+<p>Thus policies help to create sets of integrations for better management.</p>
+<h3 id="fleet-policies">Fleet Policies</h3>
+<p>The fleet server recieves the instruction from Kibana (Fleet UI) and pushes the policies to the enrolled elastic agents while keeping track of their health and status.</p>
+<p>For simplicity, I went on to configure it on the same host which already runs the elasticsearch and the kibana services.</p>
+<p>The script starts with initialzing the fleet setup with the fleet-server-policy which contains the integration for fleet-server functionalities.
+The <em>fleet-server-policy</em> policy when applied to an elastic agent would allow it function as a fleet-server, as mentioned in the elastic <a href="https://www.elastic.co/docs/reference/fleet/fleet-server">documentation</a>:</p>
+<blockquote>
+<p>Fleet Server is a subprocess that runs inside a deployed Elastic Agent. This means the deployment steps are similar to any Elastic Agent, except that you enroll the agent in a special Fleet Server policy. Typically—especially in large-scale deployments—this agent is dedicated to running Fleet Server as an Elastic Agent communication host and is not configured for data collection.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INITIALIZE FLEET</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Initializing Fleet...&#34;</span>
+</span></span><span style="display:flex;"><span>curl -s -X POST http://localhost:5601/api/fleet/setup -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> -u elastic:$ELASTIC_PASSWORD
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># CREATE FLEET-SERVER POLICY</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Creating fleet-server-policy...&#34;</span>
+</span></span><span style="display:flex;"><span>curl -s -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -X POST -H <span style="color:#e6db74">&#34;kbn-xsrf: kibana&#34;</span> -H <span style="color:#e6db74">&#34;Content-type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;http://localhost:5601/api/fleet/agent_policies&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -d <span style="color:#e6db74">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;id&#34;: &#34;fleet-server-policy&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;name&#34;: &#34;Fleet-Server-Policy&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;namespace&#34;: &#34;default&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;monitoring_enabled&#34;: []
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  }&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># ADD FLEET-SERVER INTEGRATION</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Adding fleet-server integration...&#34;</span>
+</span></span><span style="display:flex;"><span>curl -s -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -X POST -H <span style="color:#e6db74">&#34;kbn-xsrf: kibana&#34;</span> -H <span style="color:#e6db74">&#34;Content-type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;http://localhost:5601/api/fleet/package_policies&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -d <span style="color:#e6db74">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;name&#34;: &#34;fleet_server-1&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;namespace&#34;: &#34;default&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;policy_id&#34;: &#34;fleet-server-policy&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;package&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;name&#34;: &#34;fleet_server&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;version&#34;: &#34;1.6.0&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  }&#39;</span>
+</span></span></code></pre></div><p>Once created, the policy (with the integration) is visible in the dashboard.</p>
+<p><img src="./fleet-server-policy-with-fleet-server-integration.png" alt="fleet-server-policy-with-fleet-server-integration"></p>
+<p>Next the script creates another policy with integrations for elastic defend and windows telemetry, titled &lsquo;SOC-Lab-Policy&rsquo;. This is the policy that would later-on be applied onto the agent being enrolled on the Windows 11 endpoint VM.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># CREATE SOC POLICY</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Creating SOC-Lab-Policy...&#34;</span>
+</span></span><span style="display:flex;"><span>SOC_POLICY_ID<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s -X POST http://localhost:5601/api/fleet/agent_policies <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> -H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -d <span style="color:#e6db74">&#39;{&#34;name&#34;:&#34;SOC-Lab-Policy&#34;,&#34;namespace&#34;:&#34;default&#34;,&#34;monitoring_enabled&#34;:[&#34;logs&#34;,&#34;metrics&#34;]}&#39;</span> | jq -r <span style="color:#e6db74">&#39;.item.id&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] SOC Policy ID: </span>$SOC_POLICY_ID<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;SOC Policy ID: </span>$SOC_POLICY_ID<span style="color:#e6db74">&#34;</span> &gt;&gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL WINDOWS INTEGRATION TO SOC POLICY</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Adding Windows telemetry integration...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>WIN_VERSION<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s -u elastic:$ELASTIC_PASSWORD <span style="color:#e6db74">&#34;http://localhost:5601/api/fleet/epm/packages/windows&#34;</span> | jq -r <span style="color:#e6db74">&#39;.item.version&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -X POST http://localhost:5601/api/fleet/package_policies <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> -H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -d <span style="color:#e6db74">&#34;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;name\&#34;: \&#34;windows-integration\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;namespace\&#34;: \&#34;default\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;policy_id\&#34;: \&#34;</span>$SOC_POLICY_ID<span style="color:#e6db74">\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;package\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      \&#34;name\&#34;: \&#34;windows\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      \&#34;version\&#34;: \&#34;</span>$WIN_VERSION<span style="color:#e6db74">\&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  }&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL ELASTIC DEFEND INTEGRATION TO SOC POLICY</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Adding Elastic Defend integration...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ENDPOINT_VERSION<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>http://localhost:5601/api/fleet/epm/packages/endpoint <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>| jq -r <span style="color:#e6db74">&#39;.item.version&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -X POST http://localhost:5601/api/fleet/epm/packages/endpoint/$ENDPOINT_VERSION <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-u elastic:$ELASTIC_PASSWORD
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -X POST http://localhost:5601/api/fleet/package_policies <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  -d <span style="color:#e6db74">&#34;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;name\&#34;: \&#34;elastic-defend\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;policy_id\&#34;: \&#34;</span>$SOC_POLICY_ID<span style="color:#e6db74">\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;package\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      \&#34;name\&#34;: \&#34;endpoint\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      \&#34;version\&#34;: \&#34;</span>$ENDPOINT_VERSION<span style="color:#e6db74">\&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    },
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    \&#34;inputs\&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        \&#34;type\&#34;: \&#34;ENDPOINT_INTEGRATION_CONFIG\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        \&#34;enabled\&#34;: true,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        \&#34;streams\&#34;: [],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        \&#34;config\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          \&#34;_config\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            \&#34;value\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              \&#34;type\&#34;: \&#34;endpoint\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              \&#34;endpointConfig\&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                \&#34;preset\&#34;: \&#34;EDRComplete\&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ]
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  }&#34;</span>
+</span></span></code></pre></div><p>The &lsquo;SOC-Lab-Policy&rsquo; is created as follows:</p>
+<p><img src="./soc-lab-policy.png" alt="soc-lab-policy"></p>
+<p>The windows integration allows to collect logs from different data streams as demonstrated below:</p>
+<p><img src="./windows-integration-enabled-data-streams.png" alt="windows-integration-enabled-data-streams"></p>
+<p>While, the elastic-defend integration allows the agent to act as an Endpoint Detection and Response (EDR) agent. The <code>EDRComplete</code> preset mentioned in the script above allows to enable the following options within the integration:</p>
+<p><img src="./elastic-defend-integration-with-enabled-options.png" alt="elastic-defend-integration-with-enabled-options"></p>
+<h3 id="fleet-server">Fleet Server</h3>
+<p>Once the policies are in place, the script fetches the service token from the elastic service and uses it to register an elastic agent as a fleet server. It ensures that the elastic agent is compatible with the version of elasticsearch installed previously.</p>
+<p>Next, it configures the fleet server host in the Kibana fleet UI and updates the output to be elasticsearch. Finally, it validates that the fleet server is up and running.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL FLEET SERVER</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Installing Fleet Server...&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Generate service token for the agent</span>
+</span></span><span style="display:flex;"><span>SERVICE_TOKEN<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s -u elastic:$ELASTIC_PASSWORD -X POST <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    http://localhost:9200/_security/service/elastic/fleet-server/credential/token/fleet-token <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    | jq -r <span style="color:#e6db74">&#39;.token.value&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Service Token: </span>$SERVICE_TOKEN<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Service Token: </span>$SERVICE_TOKEN<span style="color:#e6db74">&#34;</span> &gt;&gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Using the Elastic version installed</span>
+</span></span><span style="display:flex;"><span>cd /tmp
+</span></span><span style="display:flex;"><span>wget -q <span style="color:#e6db74">&#34;https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-</span><span style="color:#e6db74">${</span>ELASTIC_VERSION<span style="color:#e6db74">}</span><span style="color:#e6db74">-linux-x86_64.tar.gz&#34;</span> -O elastic-agent.tar.gz
+</span></span><span style="display:flex;"><span>tar -xzf elastic-agent.tar.gz
+</span></span><span style="display:flex;"><span>cd elastic-agent-<span style="color:#e6db74">${</span>ELASTIC_VERSION<span style="color:#e6db74">}</span>-linux-x86_64/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>./elastic-agent install <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  --fleet-server-es<span style="color:#f92672">=</span>http://localhost:9200 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  --fleet-server-service-token<span style="color:#f92672">=</span>$SERVICE_TOKEN <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  --fleet-server-policy<span style="color:#f92672">=</span>fleet-server-policy <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  --fleet-server-port<span style="color:#f92672">=</span><span style="color:#ae81ff">8220</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>  --insecure --non-interactive
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># CONFIGURE FLEET HOST</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Setting Fleet Server host...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>   -X PUT -H <span style="color:#e6db74">&#34;kbn-xsrf: kibana&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>   -H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>   <span style="color:#e6db74">&#34;http://localhost:5601/api/fleet/settings&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>   -d <span style="color:#e6db74">&#34;{\&#34;fleet_server_hosts\&#34;: [\&#34;https://</span>$IP_ADDR<span style="color:#e6db74">:8220\&#34;]}&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Add elasticsearch to fleet&#39;s default output</span>
+</span></span><span style="display:flex;"><span>curl -X PUT http://localhost:5601/api/fleet/outputs/fleet-default-output <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-d <span style="color:#e6db74">&#34;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  \&#34;name\&#34;: \&#34;default\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  \&#34;type\&#34;: \&#34;elasticsearch\&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  \&#34;hosts\&#34;: [\&#34;http://</span>$IP_ADDR<span style="color:#e6db74">:9200\&#34;],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  \&#34;is_default\&#34;: true,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  \&#34;is_default_monitoring\&#34;: true
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># WAIT FOR FLEET SERVER</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Waiting for Fleet Server...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">until</span> curl -k https://<span style="color:#e6db74">${</span>IP_ADDR<span style="color:#e6db74">}</span>:8220/api/status &gt;/dev/null 2&gt;&amp;<span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>    sleep <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span>
+</span></span></code></pre></div><p>Once the server is validated to be running, the script procures the secret token to be used for enrolling subsequent agents from different endpoints into the fleet.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># GENERATE ENROLLMENT TOKEN</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Generating enrollment token...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ENROLL_TOKEN<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>curl -s <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-X POST <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>http://localhost:5601/api/fleet/enrollment_api_keys <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-u elastic:$ELASTIC_PASSWORD <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>-d <span style="color:#e6db74">&#34;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">\&#34;policy_id\&#34;:\&#34;</span>$SOC_POLICY_ID<span style="color:#e6db74">\&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>| jq -r <span style="color:#e6db74">&#39;.item.api_key&#39;</span><span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Enrollment token for windows: </span>$ENROLL_TOKEN<span style="color:#e6db74">&#34;</span> 
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Enrollment token for windows: </span>$ENROLL_TOKEN<span style="color:#e6db74">&#34;</span> &gt;&gt; <span style="color:#e6db74">${</span>SHARED_DIR<span style="color:#e6db74">}</span>/elastic_config.txt
+</span></span></code></pre></div><h2 id="stage-3-detection-rules">Stage 3: Detection Rules</h2>
+<p>Having logs into the system is only a part of the equation, intelligence is dervied only once the logs are parsed against the detection rules to identify said indicators of compromise (IOCs) i.e. steps taken by a potentially malicious actor on the system being monitored.</p>
+<p>The script installs the pre-packaged detection rules (~1500 at the time of writing this blog) and enables them in batches as the API allows to enable at-most 100 rules in one go.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL &amp; ENABLE DETECTION RULES</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Validating detction engine index...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -k -u <span style="color:#e6db74">&#34;elastic:</span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span> -X POST <span style="color:#e6db74">&#34;http://localhost:5601/api/detection_engine/index&#34;</span> -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Installing pre-packaged detection rules...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -u <span style="color:#e6db74">&#34;elastic:</span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span>   -X PUT <span style="color:#e6db74">&#34;http://localhost:5601/api/detection_engine/rules/prepackaged&#34;</span>   -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Fetching rule IDs...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -u <span style="color:#e6db74">&#34;elastic:</span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span> <span style="color:#e6db74">&#34;http://localhost:5601/api/detection_engine/rules/_find?per_page=10000&#34;</span> -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> | jq -r <span style="color:#e6db74">&#39;.data[].id&#39;</span> &gt; /tmp/rule_ids.txt
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[*] Enabling rules in batches...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>split -l <span style="color:#ae81ff">100</span> /tmp/rule_ids.txt /tmp/rules_batch_
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> file in /tmp/rules_batch_*; <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  IDS<span style="color:#f92672">=</span><span style="color:#66d9ef">$(</span>jq -R . <span style="color:#e6db74">&#34;</span>$file<span style="color:#e6db74">&#34;</span> | jq -s .<span style="color:#66d9ef">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  curl -s -u <span style="color:#e6db74">&#34;elastic:</span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -X POST <span style="color:#e6db74">&#34;http://localhost:5601/s/default/api/detection_engine/rules/_bulk_action&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -H <span style="color:#e6db74">&#34;Content-Type: application/json&#34;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span>    -d <span style="color:#e6db74">&#34;{\&#34;action\&#34;:\&#34;enable\&#34;,\&#34;ids\&#34;:</span>$IDS<span style="color:#e6db74">}&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  echo <span style="color:#e6db74">&#34;[+] Enabled batch: </span>$file<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  sleep <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">done</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[+] Detection rules installed and enabled&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>curl -s -u <span style="color:#e6db74">&#34;elastic:</span>$ELASTIC_PASSWORD<span style="color:#e6db74">&#34;</span> <span style="color:#e6db74">&#34;http://localhost:5601/api/detection_engine/rules/_find?filter=alert.attributes.enabled:true&amp;per_page=1&#34;</span> -H <span style="color:#e6db74">&#34;kbn-xsrf: true&#34;</span> | jq <span style="color:#e6db74">&#39;.total&#39;</span>
+</span></span></code></pre></div><p>After configuration completes succesfully, the installed and enabled detection rules are visible in the dashboard as follows:</p>
+<p><img src="./installed-and-enabled-siem-rules.png" alt="installed-and-enabled-siem-rules"></p>
+<h2 id="stage-4-summary-of-the-soc-siem-lab">Stage 4: Summary of the SOC-SIEM lab</h2>
+<p>Once the above mentioned steps successfully conclude, the script displays the dashboard URL along with the credentials to access it. Meanwhile, other secret tokens are written into the <code>elastic_config.txt</code> file as mentioned above.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># SUMMARIZE</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;[+] SOC LAB READY&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;Kibana:&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;http://</span><span style="color:#e6db74">${</span>IP_ADDR<span style="color:#e6db74">}</span><span style="color:#e6db74">:5601&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;username: elastic&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;password: </span><span style="color:#e6db74">${</span>ELASTIC_PASSWORD<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;&#34;</span>
+</span></span></code></pre></div><h2 id="stage-5-the-windows-endpoint">Stage 5: The Windows Endpoint</h2>
+<p>Once the SOC-SIEM VM is up and running, the next natural step is to setup the endpoint VM to be monitored. The Vagrantfile description for the same is:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-Vagrantfile" data-lang="Vagrantfile"><span style="display:flex;"><span>  <span style="color:#75715e">########################################</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># WINDOWS ENDPOINT VM (Windows 11)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">########################################</span>
+</span></span><span style="display:flex;"><span>  config<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>define <span style="color:#e6db74">&#34;win11&#34;</span> <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>win<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>box <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;gusztavvargadr/windows-11&#34;</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>hostname <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;win11-endpoint&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>network <span style="color:#e6db74">&#34;private_network&#34;</span>, <span style="color:#e6db74">ip</span>: <span style="color:#e6db74">&#34;192.168.56.30&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># WinRM Configuration</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>communicator <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;winrm&#34;</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>boot_timeout <span style="color:#f92672">=</span> <span style="color:#ae81ff">1200</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>winrm<span style="color:#f92672">.</span>transport <span style="color:#f92672">=</span> <span style="color:#e6db74">:plaintext</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>winrm<span style="color:#f92672">.</span>basic_auth_only <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>winrm<span style="color:#f92672">.</span>timeout <span style="color:#f92672">=</span> <span style="color:#ae81ff">1800</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># Provisioning</span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>provision <span style="color:#e6db74">&#34;shell&#34;</span> <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>s<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>      s<span style="color:#f92672">.</span>path <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;provision/agent.ps1&#34;</span>
+</span></span><span style="display:flex;"><span>      s<span style="color:#f92672">.</span>privileged <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># Ensures the script runs in a session that can interact with the desktop if needed</span>
+</span></span><span style="display:flex;"><span>      s<span style="color:#f92672">.</span>powershell_elevated_interactive <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    win<span style="color:#f92672">.</span>vm<span style="color:#f92672">.</span>provider <span style="color:#e6db74">&#34;virtualbox&#34;</span> <span style="color:#66d9ef">do</span> <span style="color:#f92672">|</span>vb<span style="color:#f92672">|</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;win11-endpoint-lab&#34;</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>memory <span style="color:#f92672">=</span> <span style="color:#ae81ff">8192</span>  <span style="color:#75715e"># 8GB RAM</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>cpus <span style="color:#f92672">=</span> <span style="color:#ae81ff">4</span>       <span style="color:#75715e"># 4 CPU cores</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>linked_clone <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>customize <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;modifyvm&#34;</span>, <span style="color:#e6db74">:id</span>, <span style="color:#e6db74">&#34;--vram&#34;</span>, <span style="color:#e6db74">&#34;128&#34;</span><span style="color:#f92672">]</span>                   <span style="color:#75715e"># for Video Memory</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>customize <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;modifyvm&#34;</span>, <span style="color:#e6db74">:id</span>, <span style="color:#e6db74">&#34;--graphicscontroller&#34;</span>, <span style="color:#e6db74">&#34;vmsvga&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>      vb<span style="color:#f92672">.</span>customize <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;modifyvm&#34;</span>, <span style="color:#e6db74">:id</span>, <span style="color:#e6db74">&#34;--nested-hw-virt&#34;</span>, <span style="color:#e6db74">&#34;on&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">end</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">end</span>
+</span></span></code></pre></div><p>As observed from the definitions above, I used <code>gusztavvargadr/windows-11</code> as my base Windows 11 image and configured a static IPv4 address of <code>192.168.56.30</code> for the box. Configuring the communication medium to be <code>winrm</code>, I specified the provisioning script path (i.e. <code>provision/agent.ps1</code>). Next, I configured the VM settings for resources and customized the VRAM and graphics controller value (as I often need to do when I manually setup a Microsoft Windows VM). The <code>linked_clone</code> and nested virtualization features were enabled for requirements mentioned before.</p>
+<h2 id="stage-6-endpoint-provisioning-script">Stage 6: Endpoint Provisioning Script</h2>
+<p>Same as the bash script for SOC-SIEM VM, this script starts with configuring to terminate on encountering error. Next, it bypasses the execution policy for current process (i.e. the process running the provisioning powershell commands over winrm session). Next it, validates that the <code>elastic_config.txt</code> file exists in the shared folder (which is created when SOC lab is provisioned) as this file contains the secrets required for agent enrollment.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ps1" data-lang="ps1"><span style="display:flex;"><span>$ErrorActionPreference = <span style="color:#e6db74">&#34;Stop&#34;</span>
+</span></span><span style="display:flex;"><span>Set-ExecutionPolicy Bypass -Scope <span style="color:#66d9ef">Process</span> -Force
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># CONFIG FILE LOCATION (shared from SOC Vagrant VM)</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$CONFIG_FILE = <span style="color:#e6db74">&#34;C:\vagrant\elastic_config.txt&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (!(Test-Path $CONFIG_FILE)) {
+</span></span><span style="display:flex;"><span>    Write-Host <span style="color:#e6db74">&#34;[-] elastic_config.txt not found&#34;</span>
+</span></span><span style="display:flex;"><span>    exit <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Once validated, it parses the <code>elastic_config.txt</code> file for required values. Next, it ensures that the fleet server is reachable.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ps1" data-lang="ps1"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># PARSE CONFIG VALUES</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$content = Get-Content $CONFIG_FILE
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ELASTIC_PASSWORD = ($content | Select-String <span style="color:#e6db74">&#34;elastic password&#34;</span>).ToString().Split(<span style="color:#e6db74">&#34;:&#34;</span>)[<span style="color:#ae81ff">1</span>].Trim()
+</span></span><span style="display:flex;"><span>$ELASTIC_VERSION  = ($content | Select-String <span style="color:#e6db74">&#34;Elasticsearch version&#34;</span>).ToString().Split(<span style="color:#e6db74">&#34;:&#34;</span>)[<span style="color:#ae81ff">1</span>].Trim()
+</span></span><span style="display:flex;"><span>$ENROLL_TOKEN     = ($content | Select-String <span style="color:#e6db74">&#34;Enrollment token for windows&#34;</span>).ToString().Split(<span style="color:#e6db74">&#34;:&#34;</span>)[<span style="color:#ae81ff">1</span>].Trim()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$SIEM_IP = <span style="color:#e6db74">&#34;192.168.56.20&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[+] Detected Elastic version: </span>$ELASTIC_VERSION<span style="color:#e6db74">&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># WAIT FOR FLEET SERVER</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Waiting for Fleet Server...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> (!(Test-NetConnection -ComputerName $SIEM_IP -Port <span style="color:#ae81ff">8220</span> -InformationLevel Quiet)) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Write-Host <span style="color:#e6db74">&#34;    Fleet not ready yet...&#34;</span>
+</span></span><span style="display:flex;"><span>    Start-Sleep <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[+] Fleet reachable&#34;</span>
+</span></span></code></pre></div><h2 id="stage-7-enabling-log-sources">Stage 7: Enabling Log sources</h2>
+<p>The windows telemetry integration attached in &lsquo;SOC-Lab-Policy&rsquo; monitores for logs from inbuilt windows log sources. While the agent may activate the  data streams enabled in the integration, the script goes on to enable them nevertheless beforehand (This allowed me a learning opportunity into how these options appeared within the Windows OS).</p>
+<p>Next, it installs <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon"><code>Sysmon</code></a> with <a href="https://github.com/olafhartong/sysmon-modular"><em>Olaf Hartong&rsquo;s configuration script</em></a>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ps1" data-lang="ps1"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># ENABLE WINDOWS AUDITING</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Enabling Windows audit logging...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>auditpol /set /category<span style="color:#960050;background-color:#1e0010">:</span>* /success<span style="color:#960050;background-color:#1e0010">:</span>enable /failure<span style="color:#960050;background-color:#1e0010">:</span>enable
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>reg add HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit `
+</span></span><span style="display:flex;"><span> /v ProcessCreationIncludeCmdLine_Enabled `
+</span></span><span style="display:flex;"><span> /t REG_DWORD /d <span style="color:#ae81ff">1</span> /f
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># ENABLE POWERSHELL LOGGING</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Enabling PowerShell logging...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>reg add HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging `
+</span></span><span style="display:flex;"><span> /v EnableScriptBlockLogging /t REG_DWORD /d <span style="color:#ae81ff">1</span> /f
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>reg add HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging `
+</span></span><span style="display:flex;"><span> /v EnableModuleLogging /t REG_DWORD /d <span style="color:#ae81ff">1</span> /f
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>reg add HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging\ModuleNames `
+</span></span><span style="display:flex;"><span> /v <span style="color:#e6db74">&#34;*&#34;</span> /t REG_SZ /d <span style="color:#e6db74">&#34;*&#34;</span> /f
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL SYSMON</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Installing Sysmon...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Set-Location C:\Windows\Temp
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Invoke-WebRequest `
+</span></span><span style="display:flex;"><span> https<span style="color:#960050;background-color:#1e0010">:</span>//download.sysinternals.com/files/Sysmon.zip `
+</span></span><span style="display:flex;"><span> -OutFile Sysmon.zip
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Expand-Archive Sysmon.zip -Force
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Set-Location C:\Windows\Temp\Sysmon\
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Invoke-WebRequest `
+</span></span><span style="display:flex;"><span> https<span style="color:#960050;background-color:#1e0010">:</span>//raw.githubusercontent.com/olafhartong/sysmon-modular/refs/heads/master/sysmonconfig.xml `
+</span></span><span style="display:flex;"><span> -OutFile sysmonconfig.xml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.\Sysmon64.exe -accepteula -i sysmonconfig.xml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (!(Get-Service Sysmon64 -ErrorAction SilentlyContinue)) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Write-Host <span style="color:#e6db74">&#34;[-] Sysmon install failed&#34;</span>
+</span></span><span style="display:flex;"><span>    exit <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[+] Sysmon installed&#34;</span>
+</span></span></code></pre></div><h2 id="stage-8-installing-the-agent">Stage 8: Installing the Agent</h2>
+<p>Finally, the provisioning script fetches the elastic agent compatible with the version of elasticserach installed onto the SOC-SIEM lab and enrolls it into the fleet configured as per steps mentioned before.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ps1" data-lang="ps1"><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># DOWNLOAD ELASTIC AGENT MATCHING SIEM VERSION</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Downloading Elastic Agent </span>$ELASTIC_VERSION<span style="color:#e6db74">...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Set-Location C:\Windows\Temp
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$agentZip = <span style="color:#e6db74">&#34;elastic-agent-</span>$ELASTIC_VERSION<span style="color:#e6db74">-windows-x86_64.zip&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Invoke-WebRequest `
+</span></span><span style="display:flex;"><span> https<span style="color:#960050;background-color:#1e0010">:</span>//artifacts.elastic.co/downloads/beats/elastic-agent/$agentZip `
+</span></span><span style="display:flex;"><span> -OutFile $agentZip
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Expand-Archive $agentZip -Force
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Set-Location <span style="color:#e6db74">&#34;elastic-agent-</span>$ELASTIC_VERSION<span style="color:#e6db74">-windows-x86_64\elastic-agent-</span>$ELASTIC_VERSION<span style="color:#e6db74">-windows-x86_64&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># INSTALL AND ENROLL AGENT</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[*] Installing Elastic Agent...&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>.\elastic-agent.exe install  --url=https<span style="color:#960050;background-color:#1e0010">:</span>//${SIEM_IP}<span style="color:#960050;background-color:#1e0010">:</span><span style="color:#ae81ff">8220</span> --enrollment-token=$ENROLL_TOKEN --insecure --force
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">############################################################</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Write-Host <span style="color:#e6db74">&#34;[+] Endpoint successfully enrolled into SOC&#34;</span>
+</span></span></code></pre></div><p>Once the configuration completes, one may observe that the Windows Security suggests that Virus and Threat Protection is now managed by Elastic Security.</p>
+<p><img src="./windows-security.png" alt="windows-security"></p>
+<h2 id="testing-the-setup">Testing the Setup</h2>
+<p>To test the detection capabilities, I ran the following command from elevated PowerShell window in the monitored Windows 11 VM.</p>
+<p><img src="./windows-endpoint-save-sam.png" alt="windows-endpoint-save-sam"></p>
+<p>This created the following alert in the dashboard.</p>
+<p><img src="./reg-save-alert.png" alt="reg-save-alert"></p>
+<p><img src="./reg-save-alert-2.png" alt="reg-save-alert-2"></p>
+</div>
+</article>
+
+    <hr />
+    <p class="articleTagsContainer">
+        <span> </span>
+        <strong>Tags:</strong>
+        
+            <a
+                
+                href="/tags/blue-team/">#blue team</a>
+        
+            <a
+                
+                href="/tags/homelab/">#homelab</a>
+        
+    </p>
+
+
+
+
+
+
+                    </main><footer>
+    <hr />
+
+<p><small>
+        2026 &copy; Just adhere to <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>
+    </small></p>
+    <p><small>
+        <a href='https://gitlab.com/gabmus/hugo-ficurinia'>Ficurinia theme</a> for <a href='https://gohugo.io'>Hugo</a> by <a href='https://gabmus.org'>Gabriele Musco</a>. Licensed under <a href='https://www.gnu.org/licenses/agpl-3.0.html'>GNU AGPLv3</a>.
+    </small></p>
+</footer>
+</div>
+            </div>
+        </div>
+
+
+</body>
+</html>

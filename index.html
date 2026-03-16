@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html class="home" lang="en-us"><head>
+	<meta name="generator" content="Hugo 0.154.5">
+    
+    <meta name="robots" content="noai, noimageai">
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=7" />
+
+    
+        
+          <link href="https://ashtrace.github.io/index.xml" rel="alternate" type="application/rss+xml" title="ashtrace | blog" />
+          <link href="https://ashtrace.github.io/index.xml" rel="feed" type="application/rss+xml" title="ashtrace | blog" />
+        
+    <link
+    rel="icon"
+    href='/favicon.png'
+/>
+<link
+    rel="shortcut icon"
+    href='/favicon.ico'
+    type="image/x-icon"
+/>
+<link
+    rel="apple-touch-icon"
+    href='/apple-touch-icon.png'
+/>
+
+    <link
+        rel="icon"
+        href='/logo.svg'
+        type="image/svg+xml"
+    />
+
+<title>
+        
+        ashtrace | blog
+    </title>
+
+    
+    <link href="/symbols-nerd-font/symbols-nerd-font.css" rel="stylesheet" />
+    <link href="/jetbrains-mono/jetbrains-mono.css" rel="stylesheet" />
+
+    
+    
+    <link type="text/css" rel="stylesheet" href=https://ashtrace.github.io/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
+<meta name="author" content="Aishwarya Raj" />
+
+    
+        <meta name="description" content="A blog for demonstration purposes" />
+    
+
+<meta property="og:site_name"
+    content='ashtrace | blog' />
+
+    <meta property="og:title"
+        content='ashtrace | blog' />
+    
+        <meta property="og:description" content="A blog for demonstration purposes" />
+    
+    <meta property="og:type" content="blog" />
+    <meta property="og:image"
+        content='https://ashtrace.github.io/icon512.png' />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="twitter:domain"
+      content='ashtrace.github.io'
+/>
+<meta property="twitter:url" content="https://ashtrace.github.io/" />
+
+
+    <meta name="twitter:title"
+        content='ashtrace | blog' />
+    
+        <meta name="twitter:description" content="A blog for demonstration purposes" />
+    
+    <meta name="twitter:image"
+        content='https://ashtrace.github.io/icon512.png' />
+
+<link rel="manifest" href="/manifest/index.json" />
+</head>
+
+
+    
+    
+    
+
+<body>
+        <div id="baseContainer"><header class="jumbotronContainer">
+<div class="titleAndSearchContainer">
+        <div id="titleContainer">
+            
+                <a class="unstyledLink" href="/">
+                    <img src='/logo.svg' alt='Logo'/>
+                </a>
+            
+            <div class="rightOfLogo">
+                <div class="titleAndHamburger">
+                    <h1>
+                        <a class="unstyledLink" href="/">ashtrace | blog</a>
+                        
+                    </h1>
+                    
+                </div>
+                <div id="wide_nav"><nav>
+    
+    <ul id="main-nav">
+        <li><a href="/">Home</a></li>
+        
+            <li><a href="/posts/">Posts</a></li>
+        
+        
+        
+        
+        
+        
+        
+            <li><a href="/tags/">Tags</a></li>
+        
+        
+    </ul>
+</nav>
+</div>
+            </div>
+        </div>
+        <div class="search">
+    <input id="searchbar" type="text" placeholder='Search' />
+    <span class="nerdlink" onclick="newSearch();">&#xf002;</span>
+</div>
+<script>
+    function newSearch() {
+        let term = searchbar.value.trim();
+        if (!term) return;
+        location.href = `/search/?q=${term}`;
+    }
+    searchbar.onkeyup = (ev) => {if (ev.keyCode == 13) newSearch()};
+</script>
+
+    </div>
+    <div id="links">
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="/index.xml">
+    
+    
+        &#xf09e;
+    
+    <span>
+        RSS
+    </span>
+</a>
+
+        
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="https://github.com/ashtrace">
+    
+    
+        &#xf09b;
+    
+    <span>
+        GitHub
+    </span>
+</a>
+
+    </div>
+    
+
+</header>
+<div id="contentContainer">
+                <div id="content">
+                    <main>
+
+    
+    
+    
+
+
+
+
+
+    
+
+
+
+<div class="postlist " id="postlist">
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/soc_homelab_101/">SOC Homelab 101 - Learning Defensive Solutions</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2026-03-16
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/blue-team">#blue team</a>
+                
+                    <a href="/tags/homelab">#homelab</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>Unfortunately in the AD Homelab, I failed to focus on defensive capabilities of Wazuh as XDR so this time I planned to build a lab focused on detection solutions. Rather than Wazuh, in this iteration I tried to get my hands dirty with Elastic and Kibana from the renowned ELK stack. Furthermore, I leveraged this exercise to learn about Vagrant and automation VM provisioning so unlike the previous homelab blog, this focuses on automating steps in place of manual configurations.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/soc_homelab_101/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/black_hat_v_tcp/">Black Hat V: TCP Shenanigans</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2025-12-04
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/networks">#networks</a>
+                
+                    <a href="/tags/programming">#programming</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>The following is the culmination of my first deep dive into V’s vastly undocumented stdlib—pieced together from scattered docs and actual module implementations on GitHub. Bear with me through the re-re-re-I-lost-count-re-invention of <em>the wheel of basic TCP tooling</em> as I learn V’s standard library by building a TCP port scanner, a buffered echo server, a port-forwarder, and a bind-shell wrapper.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/black_hat_v_tcp/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/black_hat_v_intro/">Black Hat V: Introduction to something that I might or might not do</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2025-11-30
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/programming">#programming</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>After brothing my first set of cybersecurity alphabet soup of certifications (yup, now I&rsquo;ve hunt down OSCP for my HR peeps) I felt need to re-strategise my academic approach. Following is the first of many advents I have planned for myself. Throughout this and following posts (marked as Black Hat V), I&rsquo;d try to reconstruct the exercises of <a href="https://nostarch.com/blackhatgo">Black Hat Go (by Tom Steele, Chris Patten, and Dan Kottmann)</a> to encourage myself to learn <a href="https://vlang.io/">vlang</a>.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/black_hat_v_intro/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/building_homelab/">AD Homelab 101: Building an Active Directory &#43; XDR homelab in 101 steps</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2025-05-23
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/active-directory">#active directory</a>
+                
+                    <a href="/tags/homelab">#homelab</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>Fresh off my CRTO exam I itched for a local AD lab to practice red-team stuff. GOAD with the ELK/Wazuh extension is (at the time of writing) the best choice (author’s personal views) for this but I seriously lacked a gigaton of RAM required for 5 (lab) + 1 (extension) VMs, so I went Thanos mode and declared - Fine! I’ll do it myself.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/building_homelab/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/how_functions_resolve/">How are functions resolved: A jump across tables into dl_resolve</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2025-01-14
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/ctf">#ctf</a>
+                
+                    <a href="/tags/linux">#linux</a>
+                
+                    <a href="/tags/pwn">#pwn</a>
+                
+                    <a href="/tags/writeup">#writeup</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>While going through another one of those easy challenges (this one dealing with ret2dlresolve), I encountered the following piece of exploit in the writeup which possessed limited verbosity for me and with this level of abstraction I could not figure out what the exploit actually was. Thus I put on my gloves and decided to dig into the dl_resolve process.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/how_functions_resolve/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+<article class="card postlistitem">
+    <div>
+        <h2>
+            <a href="https://ashtrace.github.io/posts/tracing_file_descriptors/">Tracing file descriptors: A battle against poor writeups</a>
+        </h2>
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2024-10-05
+
+
+            
+                | 
+                <span title='Tags'> </span>
+                
+                    <a href="/tags/ctf">#ctf</a>
+                
+                    <a href="/tags/linux">#linux</a>
+                
+                    <a href="/tags/pwn">#pwn</a>
+                
+                    <a href="/tags/writeup">#writeup</a>
+                
+            
+        </p>
+        
+        
+            <div class="articlePreview">
+                <p>
+                    
+                        <p>I was going through an easy pwn challenge—easy according to the platform, not my personal ranking. After successfully pwning the binary locally, I ran the same exploit against the remote challenge service and it completely fell apart. I checked the writeup hoping for clarity, but the explanation they gave didn’t really scratch the itch or fully explain why things behaved differently.</p>
+                    
+                </p>
+                <p><a href="https://ashtrace.github.io/posts/tracing_file_descriptors/">Continue reading </a></p>
+            </div>
+        
+    </div>
+    <hr />
+</article>
+
+</div>
+<div id="getNextBtnContainer"></div>
+
+
+
+
+
+
+                    </main><footer>
+    <hr />
+
+<p><small>
+        2026 &copy; Just adhere to <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>
+    </small></p>
+    <p><small>
+        <a href='https://gitlab.com/gabmus/hugo-ficurinia'>Ficurinia theme</a> for <a href='https://gohugo.io'>Hugo</a> by <a href='https://gabmus.org'>Gabriele Musco</a>. Licensed under <a href='https://www.gnu.org/licenses/agpl-3.0.html'>GNU AGPLv3</a>.
+    </small></p>
+</footer>
+</div>
+            </div>
+        </div>
+
+
+</body>
+</html>
