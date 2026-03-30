@@ -6,7 +6,55 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Mon, 16 Mar 2026 02:33:55 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Sat, 21 Mar 2026 01:26:34 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>C2</title>
+      <link>https://ashtrace.github.io/tags/c2/</link>
+      <pubDate>Sat, 21 Mar 2026 01:26:34 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/c2/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Malware Development</title>
+      <link>https://ashtrace.github.io/tags/malware-development/</link>
+      <pubDate>Sat, 21 Mar 2026 01:26:34 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/malware-development/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Programming</title>
+      <link>https://ashtrace.github.io/tags/programming/</link>
+      <pubDate>Sat, 21 Mar 2026 01:26:34 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/programming/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
+    
+    
+    <item>
+      <title>Red Team</title>
+      <link>https://ashtrace.github.io/tags/red-team/</link>
+      <pubDate>Sat, 21 Mar 2026 01:26:34 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/tags/red-team/</guid>
+      <description><![CDATA[]]></description>
+      
+    </item>
+    
     
     
     <item>
@@ -39,18 +87,6 @@
       <pubDate>Thu, 04 Dec 2025 22:28:48 +0530</pubDate>
       
       <guid>https://ashtrace.github.io/tags/networks/</guid>
-      <description><![CDATA[]]></description>
-      
-    </item>
-    
-    
-    
-    <item>
-      <title>Programming</title>
-      <link>https://ashtrace.github.io/tags/programming/</link>
-      <pubDate>Thu, 04 Dec 2025 22:28:48 +0530</pubDate>
-      
-      <guid>https://ashtrace.github.io/tags/programming/</guid>
       <description><![CDATA[]]></description>
       
     </item>

