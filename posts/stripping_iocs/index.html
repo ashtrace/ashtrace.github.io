@@ -46,7 +46,7 @@
         <meta name="keywords" content='malware development, programming, red team' />
     
     
-        <meta name="description" content="t to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a &lt;em&gt;lot&lt;/em&gt; of nuances. The &amp;lsquo;release&amp;rsquo; build was detected and literally had the PDB path with the word &lt;code&gt;loader&lt;/code&gt; embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour.&lt;/p&gt;" />
+        <meta name="description" content="t to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a &lt;em&gt;lot&lt;/em&gt; of nuances. The &amp;lsquo;release&amp;rsquo; build was detected and literally had the PDB path with the word &lt;code&gt;loader&lt;/code&gt; embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour leveraging IAT hiding through compile-time API obfuscation and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&amp;rsquo;ll encounter as you read.&lt;/p&gt;" />
     
 
 <meta property="og:site_name"
@@ -208,11 +208,11 @@
     
     
     
-    <div><p>In my last attempt to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a <em>lot</em> of nuances. The &lsquo;release&rsquo; build was detected and literally had the PDB path with the word <code>loader</code> embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour.</p>
+    <div><p>In my last attempt to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a <em>lot</em> of nuances. The &lsquo;release&rsquo; build was detected and literally had the PDB path with the word <code>loader</code> embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour leveraging IAT hiding through compile-time API obfuscation and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&rsquo;ll encounter as you read.</p>
 <h2 id="what-indicators">What Indicators?</h2>
 <p>The virustotal scan for the last build of the loader demonstrated that disassembling/decompilation capabilities through <code>code insights</code> provided following insights into the binary:</p>
 <p><img src="./NetUtil4-virustotal.png" alt="NetUtil4-virustotal"></p>
-<p>As I was sticking to the pseudo-identity of network utility tool called <code>NetUtil</code> thus my first targets where WinAPIs being used for remote mapping injection and APC injection. The WinInet functions, being used to fetch the payload, were not an immidiate issue for me.</p>
+<p>As I was sticking to the pseudo-identity of network utility tool called <code>NetUtil</code> thus my first targets where WinAPIs being used for remote mapping injection and APC injection. The WinInet functions, being used to fetch the payload, were not an immediate issue for me.</p>
 <h2 id="api-hashing-for-iat-hiding">API Hashing for IAT Hiding</h2>
 <p>The well-known-personalities-in-the-malware-world functions of <code>CreateProcess</code>, <code>WriteProcessMemory</code>, <code>CreateFileMapping</code>, <code>MapViewOfFile</code>, <code>MapViewOfFile2</code>, <code>QueuerUserAPC</code>, <code>DebugActiveProcessStop</code> where present in the import address table of the binary which would&rsquo;ve provided easy indicators to any scanner.</p>
 <p>To resolve these functions through DLL module walking at runtime; levaraging a unique hash value for each of the functions mentioned was my goto approach to hide them from IAT.</p>
@@ -632,14 +632,14 @@
 </span></span><span style="display:flex;"><span><span style="color:#75715e">#endif </span><span style="color:#75715e">// !LOG_DEBUG_MSG
 </span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
 </span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p>Notice that helper functions now recieve the hash-resolved-function-address structure to leverage the WinAPIs through their calculated addresses. Same occurs for removing the debugger, wher <code>DebugActiveProcessStop</code> is being called through its address stored in the <code>HashedApis</code> structure.</p>
+</span></span></code></pre></div><p>Notice that helper functions now receive the hash-resolved-function-address structure to leverage the WinAPIs through their calculated addresses. Same occurs for removing the debugger, where <code>DebugActiveProcessStop</code> is being called through its address stored in the <code>HashedApis</code> structure.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pDebugActiveProcessStop</span>(dwProcessID);
 </span></span></code></pre></div><h3 id="benchmarks">Benchmarks</h3>
 <p>All of this kung-fu resulted in removing the mentioned infamous functions from the binary IAT. The left pane shows the IAT of loader version from last blog-post, the right pane shows the IAT with function hashing.</p>
 <p><img src="./loader3-vs-netutil5-iat.png" alt="loader3-vs-netutil5-iat"></p>
 <p>A submission on virustotal showed that the detection score dropped from 6 to 5.</p>
 <p><img src="./NetUtil5-virustotal.png" alt="NetUtil5-virustotal"></p>
-<p>While a decrement of single unit was appreciated, it wasn&rsquo;t much. As the engine was already in place, I hashed the WinInet functions too. The updated <code>InitApis</code> function included</p>
+<p>While a decrement of a single unit was appreciated, it wasn&rsquo;t much. As the engine was already in place, I hashed the WinInet functions too. The updated <code>InitApis</code> function included</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">InitApis</span>(
 </span></span><span style="display:flex;"><span>	OUT	PH_API<span style="color:#f92672">*</span> ppHashedApis
 </span></span><span style="display:flex;"><span>) {
@@ -719,7 +719,7 @@
 <li>This application is compatible across different microsoft versions (<code>supportedOS</code> GUIDs dervied from: <a href="https://learn.microsoft.com/en-us/windows/win32/sysinfo/targeting-your-application-at-windows-8-1">https://learn.microsoft.com/en-us/windows/win32/sysinfo/targeting-your-application-at-windows-8-1</a>)</li>
 <li>This application is DPI aware</li>
 </ul>
-<p>to further add onto pseduo-legitimacy.</p>
+<p>to further add onto pseudo-legitimacy.</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#75715e">&lt;?xml version=&#34;1.0&#34; encoding=&#34;utf-8&#34;?&gt;</span>
 </span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;assembly</span> <span style="color:#a6e22e">manifestVersion=</span><span style="color:#e6db74">&#34;1.0&#34;</span>
 </span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">xmlns=</span><span style="color:#e6db74">&#34;urn:schemas-microsoft-com:asm.v1&#34;</span><span style="color:#f92672">&gt;</span>
@@ -784,7 +784,7 @@
 <p>To include macro definitions, I prefixed <code>#include &lt;windef.h&gt;</code> before <code>#include &quot;resource.h&quot;</code> include statement, it further fixed all other build errors mentioned above so I flew with it.</p>
 <h3 id="benchmarking">Benchmarking</h3>
 <p>This release build finally landed 0 detections on virustotal.</p>
-<p><img src="./NetUtil-version-build-error.png" alt="NetUtil-version-build-error"></p>
+<p><img src="./NetUtil-zero-on-virustotal.png" alt="NetUtil-zero-on-virustotal"></p>
 <h2 id="in-the-trenches">In the trenches</h2>
 <p>Throwing this final build onto my SOC-SIEM lab gave me successful connection onto Adaptix C2. Unlike the previous attempt where a debug build (may be helping in lowering entropy) was the loader that succeeded, here the final release build was used.</p>
 <p><img src="./NetUtil-adaptix-callback.png" alt="NetUtil-adaptix-callback"></p>
