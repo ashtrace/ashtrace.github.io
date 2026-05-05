@@ -46,7 +46,7 @@
         <meta name="keywords" content='malware development, programming, red team' />
     
     
-        <meta name="description" content="t to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a &lt;em&gt;lot&lt;/em&gt; of nuances. The &amp;lsquo;release&amp;rsquo; build was detected and literally had the PDB path with the word &lt;code&gt;loader&lt;/code&gt; embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour leveraging IAT hiding through compile-time API obfuscation and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&amp;rsquo;ll encounter as you read.&lt;/p&gt;" />
+        <meta name="description" content="t to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a &lt;em&gt;lot&lt;/em&gt; of nuances. The &amp;lsquo;release&amp;rsquo; build was detected and literally had the PDB path with the word &lt;code&gt;loader&lt;/code&gt; embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of the possible indicators of malicious behaviour with aim to achieve 0 detections on VirusTotal, leveraging IAT hiding through compile-time API hashing and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&amp;rsquo;ll encounter as you read.&lt;/p&gt;" />
     
 
 <meta property="og:site_name"
@@ -208,9 +208,9 @@
     
     
     
-    <div><p>In my last attempt to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a <em>lot</em> of nuances. The &lsquo;release&rsquo; build was detected and literally had the PDB path with the word <code>loader</code> embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of possible indicators of malicious behaviour leveraging IAT hiding through compile-time API obfuscation and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&rsquo;ll encounter as you read.</p>
+    <div><p>In my last attempt to build a loader while I did land to no detections over free-tier elastic defend EDR capabilities there were a <em>lot</em> of nuances. The &lsquo;release&rsquo; build was detected and literally had the PDB path with the word <code>loader</code> embedded into the binary. Professional hacker momemnts. The following is my attempt of stripping the binary clean of the possible indicators of malicious behaviour with aim to achieve 0 detections on VirusTotal, leveraging IAT hiding through compile-time API hashing and creating a legitimate utility identity through versioning and manifest with some further cleansing of the project you&rsquo;ll encounter as you read.</p>
 <h2 id="what-indicators">What Indicators?</h2>
-<p>The virustotal scan for the last build of the loader demonstrated that disassembling/decompilation capabilities through <code>code insights</code> provided following insights into the binary:</p>
+<p>The VirusTotal scan for the last build of the loader demonstrated that disassembling/decompilation capabilities through <code>code insights</code> provided following insights into the binary:</p>
 <p><img src="./NetUtil4-virustotal.png" alt="NetUtil4-virustotal"></p>
 <p>As I was sticking to the pseudo-identity of network utility tool called <code>NetUtil</code> thus my first targets where WinAPIs being used for remote mapping injection and APC injection. The WinInet functions, being used to fetch the payload, were not an immediate issue for me.</p>
 <h2 id="api-hashing-for-iat-hiding">API Hashing for IAT Hiding</h2>
@@ -637,7 +637,7 @@
 </span></span></code></pre></div><h3 id="benchmarks">Benchmarks</h3>
 <p>All of this kung-fu resulted in removing the mentioned infamous functions from the binary IAT. The left pane shows the IAT of loader version from last blog-post, the right pane shows the IAT with function hashing.</p>
 <p><img src="./loader3-vs-netutil5-iat.png" alt="loader3-vs-netutil5-iat"></p>
-<p>A submission on virustotal showed that the detection score dropped from 6 to 5.</p>
+<p>A submission on VirusTotal showed that the detection score dropped from 6 to 5.</p>
 <p><img src="./NetUtil5-virustotal.png" alt="NetUtil5-virustotal"></p>
 <p>While a decrement of a single unit was appreciated, it wasn&rsquo;t much. As the engine was already in place, I hashed the WinInet functions too. The updated <code>InitApis</code> function included</p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">InitApis</span>(
@@ -783,7 +783,7 @@
 <p><img src="./NetUtil-version-build-error.png" alt="NetUtil-version-build-error"></p>
 <p>To include macro definitions, I prefixed <code>#include &lt;windef.h&gt;</code> before <code>#include &quot;resource.h&quot;</code> include statement, it further fixed all other build errors mentioned above so I flew with it.</p>
 <h3 id="benchmarking">Benchmarking</h3>
-<p>This release build finally landed 0 detections on virustotal.</p>
+<p>This release build finally landed 0 detections on VirusTotal.</p>
 <p><img src="./NetUtil-zero-on-virustotal.png" alt="NetUtil-zero-on-virustotal"></p>
 <h2 id="in-the-trenches">In the trenches</h2>
 <p>Throwing this final build onto my SOC-SIEM lab gave me successful connection onto Adaptix C2. Unlike the previous attempt where a debug build (may be helping in lowering entropy) was the loader that succeeded, here the final release build was used.</p>
