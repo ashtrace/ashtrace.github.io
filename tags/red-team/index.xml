@@ -17,7 +17,7 @@
       <guid>https://ashtrace.github.io/posts/sandboxes_syscalls_and_hooks/</guid>
       <description><![CDATA[<p>While a VirusTotal &lsquo;0&rsquo; score is satisfying, it isn&rsquo;t pragmatic to live in that world, as VT limits itself to static IoCs. Thus, naturally the next challenge was defeating runtime analysis. To build the runtime analysis lab I used <a href="https://github.com/kevoreilly/CAPEv2">CAPEv2 sandbox</a> and then tried to defeat its instrumentation capabilities through Halo&rsquo;s Gate and Indirect Syscalls. I further explored Parent Process Spoofing and Mitigation policies to restrict monitoring DLLs.</p>
 <h2 id="installing-cape">Installing CAPE</h2>
-<p>While my first choice was to integrate the CAPE environment with my SOC-Lab, nested virtualization was severe a roadblock, so I used a secondary machine to install CAPE on host.</p>
+<p>While my first choice was to integrate the CAPE environment with my SOC-Lab, nested virtualization was a severe roadblock, so I used a secondary machine to install CAPE on host.</p>
 <p>I followed the steps mentioned in the CAPE documentation for <a href="https://capev2.readthedocs.io/en/latest/installation/host/installation.html">Installing CAPE</a> for Ubuntu 22.04 LTS and <a href="https://capev2.readthedocs.io/en/latest/installation/guest/index.html">Preparing the Guest</a> for Windows 10.</p>
 <p>I&rsquo;d strongly recommend to use Ubuntu 22.04 LTS as the host OS as I faced challenges with the monolithic installation scripts on other OSs (particularly Kali Linux).</p>
 <blockquote>
